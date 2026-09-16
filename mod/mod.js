@@ -114,6 +114,7 @@ export function onContextCreated(robot, option) {
   // area - the only way a MOD can see screen touches, since the touch chip cannot be opened twice.
   try {
     robot.ui.setFace(createSmileFace({ onTouch: events.recordScreenTouch }))
+    events.noteFaceTouchSource()
     trace('[mcp-mod] custom smile face installed\n')
   } catch (error) {
     trace(`[mcp-mod] custom face failed: ${errorMessage(error)}\n`)

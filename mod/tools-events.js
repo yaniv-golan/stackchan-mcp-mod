@@ -338,6 +338,16 @@ export function createEvents(robot) {
 
   return {
     tools,
+    /**
+     * Declares that the custom face will report screen touches, so get_input_capabilities can say so
+     * from boot. Waiting for the first touch to arrive would report the capability as absent until it
+     * had been exercised, which misleads any client that probes at startup.
+     */
+    noteFaceTouchSource() {
+      attached.touch = true
+      attached.touchFromFace = true
+    },
+
     /** Lets another component (the custom face) feed screen-touch events into the same buffer. */
     recordScreenTouch: (event) => {
       try {
