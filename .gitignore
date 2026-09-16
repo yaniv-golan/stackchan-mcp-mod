@@ -1,0 +1,26 @@
+# Secrets
+.env
+*.pem
+
+# Working notes that are not part of the published project
+docs/internal/
+
+# Build output
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editors and OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Logs and captures
+*.log
+*.wav
+*.png
+!docs/**/*.png

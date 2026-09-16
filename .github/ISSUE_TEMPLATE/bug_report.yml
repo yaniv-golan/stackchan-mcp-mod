@@ -1,0 +1,34 @@
+name: Bug report
+description: Something behaves differently than documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check `docs/device-notes.md` first — several surprising behaviours are known firmware
+        or hardware limits and are documented there with measurements.
+  - type: input
+    id: mod-version
+    attributes:
+      label: MOD version
+      description: From the `get_robot_info` tool
+      placeholder: "0.1.0"
+    validations: { required: true }
+  - type: input
+    id: firmware
+    attributes:
+      label: Robot and firmware
+      placeholder: "M5StackChan CoreS3, stack-chan v1.1.0"
+    validations: { required: true }
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you called, what you expected, what the robot did (including the screen, sound and movement)
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Serial log, if you have one
+      description: Note that opening the serial port resets the robot.
+      render: text

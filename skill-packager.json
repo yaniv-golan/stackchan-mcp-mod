@@ -1,0 +1,40 @@
+{
+  "skills": [
+    {
+      "name": "stackchan-robot",
+      "source_path": "stackchan-robot/skills/stackchan-robot",
+      "description": "Operate a Stack-chan desk robot through its MCP tools \u2014 take photos, listen to the room, speak, move the head, light the LEDs, show messages and react to touch. Use whenever a request involves what the robot should see, hear, say, show or do, when interpreting what the robot sensed, or when the robot stops responding and needs recovery. Covers safe operation of real hardware: what the device cannot do, which call can leave it needing a human, and how to report physical outcomes honestly.",
+      "has_scripts": false,
+      "has_references": false,
+      "has_assets": false,
+      "has_agents": false,
+      "has_evals": false
+    }
+  ],
+  "plugin_name": "stackchan-robot",
+  "marketplace_name": "stackchan-robot-marketplace",
+  "display_name": "Stackchan Robot",
+  "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
+  "version": "0.1.0",
+  "author_name": "Yaniv Golan",
+  "author_email": "yaniv@golan.name",
+  "github_owner": "yaniv-golan",
+  "github_repo": "stackchan-mcp-mod",
+  "license": "Apache-2.0",
+  "keywords": [
+    "robot",
+    "stack-chan",
+    "mcp",
+    "hardware",
+    "esp32",
+    "camera",
+    "microphone"
+  ],
+  "category": "hardware",
+  "formats": [
+    "claude-marketplace"
+  ],
+  "targets": [
+    "claude-code"
+  ]
+}

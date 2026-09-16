@@ -1,0 +1,22 @@
+{
+  "name": "stackchan-robot",
+  "displayName": "Stack-chan Robot",
+  "version": "0.1.0",
+  "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
+  "author": {
+    "name": "Yaniv Golan",
+    "email": "yaniv@golan.name"
+  },
+  "homepage": "https://github.com/yaniv-golan/stackchan-mcp-mod",
+  "repository": "https://github.com/yaniv-golan/stackchan-mcp-mod",
+  "license": "Apache-2.0",
+  "keywords": [
+    "robot",
+    "stack-chan",
+    "mcp",
+    "hardware",
+    "esp32",
+    "camera",
+    "microphone"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "stackchan-mcp-mod",
+  "version": "0.1.0",
+  "description": "An MCP server MOD for Stack-chan that exposes the robot's capabilities as MCP tools",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "scripts/check.sh",
+    "lint": "biome lint mod",
+    "format": "biome format --write mod"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4"
+  }
+}

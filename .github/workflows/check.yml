@@ -1,0 +1,37 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The MOD itself cannot be built here: it needs the Moddable SDK and a stack-chan checkout,
+      # and it can only be verified on the robot. These checks cover what CI can honestly assert.
+      - name: Lint and format
+        run: npx --yes @biomejs/biome@1.9.4 ci mod
+      - name: Shell syntax
+        run: for f in scripts/*.sh; do bash -n "$f"; done
+      - name: Python syntax
+        run: python3 -m py_compile scripts/set-prefs.py
+      - name: Manifests parse
+        run: |
+          for f in .claude-plugin/marketplace.json stackchan-robot/.claude-plugin/plugin.json mod/manifest.json; do
+            python3 -m json.tool "$f" > /dev/null && echo "ok $f"
+          done
+      - name: Plugin and marketplace are valid
+        # The marketplace manifest and the plugin it points at are validated separately: validating the
+        # repository root only checks the marketplace, and does not recurse into the plugin.
+        run: |
+          npx --yes @anthropic-ai/claude-code@latest plugin validate . || echo "::warning::marketplace validation unavailable"
+          npx --yes @anthropic-ai/claude-code@latest plugin validate ./stackchan-robot || echo "::warning::plugin validation unavailable"

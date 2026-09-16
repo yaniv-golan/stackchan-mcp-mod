@@ -1,0 +1,16 @@
+stackchan-mcp-mod
+Copyright 2026 Yaniv Golan
+
+This product includes software developed by the Stack-chan community
+(https://github.com/stack-chan/stack-chan), licensed under the Apache License, Version 2.0.
+
+Two files are derived from that project (v1.1.0), each with its modifications described in its
+own header:
+
+  mod/mcp-server-rich.js  from firmware/host/modules/connectivity/mcp-server/mcp-server.ts
+  mod/face-smile.js       from firmware/host/modules/ui/components/face/behaviors/face.ts
+                          and firmware/host/modules/ui/components/face/parts/mouth.ts
+
+This software runs on the Moddable SDK (https://github.com/Moddable-OpenSource/moddable). Register
+addresses and hardware behaviour documented in docs/device-notes.md were observed against the
+Moddable SDK's M5Stack CoreS3 target and M5Stack's published hardware documentation.

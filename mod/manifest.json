@@ -1,0 +1,24 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_mod.json"
+  ],
+  "modules": {
+    "*": [
+      "./mod",
+      "./mcp-server-rich",
+      "./tools-motion",
+      "./tools-appearance",
+      "./tools-events",
+      "./tools-camera",
+      "./png",
+      "./base64",
+      "./tools-audio",
+      "./tools-system",
+      "./tools-power",
+      "./face-smile",
+      "./tools-mic-gain",
+      "./capture-policy",
+      "./indicators"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+# stackchan-mcp-mod
+
+> A MOD for the Stack-chan desk robot (M5StackChan CoreS3, stack-chan firmware v1.1.0) that serves MCP tools over
+> HTTP, so an AI assistant can take photos, listen to the room, speak, move the robot's head, drive its LEDs and
+> react to touch. Written in JavaScript for the Moddable XS engine; it installs to a flash partition without
+> rebuilding the firmware.
+
+Two things shape almost every decision in this codebase, and an agent that misses them will write code that bricks
+a session: an uncaught exception or unhandled promise rejection reboots the device, and an oversized response takes the HTTP
+server down rather than merely failing (~28 KB bodies are known good, ~56 KB is fatal). Changes cannot be verified without the physical
+robot — a passing build proves only that the JavaScript compiles.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): the constraints, the layout, the conventions, and the settled questions not worth
+  re-litigating. Read this before changing code.
+- [README.md](README.md): what the project is, the tool list, how to build, install and configure it.
+- [docs/architecture.md](docs/architecture.md): how the modules fit together, the boot sequence, and how a request
+  flows from HTTP to a tool handler.
+
+## Reference
+
+- [docs/tool-reference.md](docs/tool-reference.md): every tool with its arguments, generated from a live robot by
+  `scripts/dump-tools.sh`.
+- [docs/device-notes.md](docs/device-notes.md): the empirical record — measured device limits, firmware bugs found
+  along the way, and the approaches that did not work. Consult it before assuming a surprising behaviour is a bug
+  in this code.
+- [SECURITY.md](SECURITY.md): what installing this exposes, the capture policy, and the hardening of the
+  unauthenticated request path.
+- [CONTRIBUTING.md](CONTRIBUTING.md): what a change needs before it can be proposed.
+- [CHANGELOG.md](CHANGELOG.md): release history.
+
+## Optional
+
+- [stackchan-robot/skills/stackchan-robot/SKILL.md](stackchan-robot/skills/stackchan-robot/SKILL.md): an operator
+  skill for assistants driving the robot — safe operation, recovery, and how to report physical outcomes honestly.
+  Packaged as a Claude Code plugin via `.claude-plugin/marketplace.json`. Not needed to modify the code.

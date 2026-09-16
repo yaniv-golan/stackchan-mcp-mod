@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest a tool or capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: capability
+    attributes:
+      label: What should the robot be able to do
+      description: Describe it from the point of view of the assistant calling the tool.
+    validations: { required: true }
+  - type: textarea
+    id: host-api
+    attributes:
+      label: Which host API would provide it, if you know
+      description: |
+        Tools are limited to what the stack-chan firmware exposes to a MOD (see
+        `firmware/host/app/capabilities.ts` upstream). Some things are simply not reachable — screen
+        touch and microphone gain are documented examples.

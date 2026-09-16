@@ -1,0 +1,32 @@
+{
+  "name": "stackchan-robot-marketplace",
+  "owner": {
+    "name": "Yaniv Golan",
+    "email": "yaniv@golan.name"
+  },
+  "metadata": {
+    "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "stackchan-robot",
+      "source": "./stackchan-robot",
+      "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
+      "author": {
+        "name": "Yaniv Golan",
+        "email": "yaniv@golan.name"
+      },
+      "category": "hardware",
+      "tags": [
+        "robot",
+        "stack-chan",
+        "mcp",
+        "hardware",
+        "esp32",
+        "camera",
+        "microphone"
+      ]
+    }
+  ]
+}
