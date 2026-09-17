@@ -131,6 +131,23 @@ Register it with Claude Code:
 claude mcp add --scope user --transport http stackchan http://<robot-ip>:8080/mcp --header "Authorization: Bearer <token>"
 ```
 
+## Moving it to another network
+
+Wi-Fi credentials are ordinary preferences, so Settings mode rewrites them like any other. Put the password in a
+gitignored `.env` at the repository root rather than on the command line, and reference it:
+
+```sh
+uv run --with bleak scripts/set-prefs.py wifi.ssid=<new-network> wifi.password=@env:WIFI_PASSWORD
+```
+
+Start the script first - it scans for up to 150 s - then press the bottom reset button, tap the gear on the 3 s
+splash, and leave the Settings screen open. Press reset again afterwards *without* touching the screen, so the MOD
+reloads.
+
+The robot joins the new network on that boot. Its address changes, and nothing announces the new one: mDNS does not
+work on this firmware. Find it by its MAC in the ARP table and re-run the `claude mcp add` above, because a client
+registered against the old address simply stops working.
+
 ## Watching for events
 
 The robot cannot push: there is no SSE on this firmware, and MCP's notification mechanism would need a

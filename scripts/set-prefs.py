@@ -7,6 +7,11 @@ Settings mode: press the bottom reset button, then tap the gear "Settings" butto
     uv run --with bleak scripts/set-prefs.py key=value ... # arbitrary prefs, e.g. ui.language=en
     uv run --with bleak scripts/set-prefs.py tts.type=openai tts.token=@env:OPENAI_API_KEY
     uv run --with bleak scripts/set-prefs.py mcp.capture=armed   # require a head touch before capture
+    uv run --with bleak scripts/set-prefs.py wifi.ssid=NewNetwork wifi.password=@env:WIFI_PASSWORD
+
+Wi-Fi credentials are ordinary preferences, so this is how the robot moves to another network. It joins on the
+next boot, its address changes, and nothing announces the new one - find it again by MAC in the ARP table and
+re-register any client that had the old address.
 
 Value references (never printed):
     @env:<NAME>          from .env (beside this script or at the repository root), else the environment
