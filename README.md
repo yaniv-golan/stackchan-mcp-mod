@@ -259,6 +259,13 @@ To use it without the plugin machinery, copy the skill folder straight in:
 cp -r stackchan-robot/skills/stackchan-robot ~/.claude/skills/
 ```
 
+Both the skill and its packaging were produced with dedicated tooling:
+
+- **[skill-creator-plus](https://github.com/yaniv-golan/skill-creator-plus)** drafted and iterated
+  [`stackchan-robot/skills/stackchan-robot/SKILL.md`](stackchan-robot/skills/stackchan-robot/SKILL.md).
+- **[skill-packager](https://github.com/yaniv-golan/skill-packager-skill)** generated the plugin and marketplace
+  manifests from [`skill-packager.json`](skill-packager.json).
+
 ## Working notes
 
 [`docs/device-notes.md`](docs/device-notes.md) is the bring-up log for this MOD: the build toolchain, the measured
