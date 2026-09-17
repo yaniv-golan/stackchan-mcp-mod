@@ -48,14 +48,28 @@ claude mcp add --scope user --transport http stackchan http://<ip>:8080/mcp \
   --header "Authorization: Bearer $(security find-generic-password -s stackchan-mcp-token -a stackchan -w)"
 ```
 
-If a server named `stackchan` already exists, this is usually a robot that moved to a new address. Say so, and
-remove the old one with `claude mcp remove stackchan` before adding it again — only after the user agrees.
+First check whether one is already registered:
+
+```sh
+claude mcp get stackchan 2>/dev/null | grep -i '^  URL:'
+```
+
+- **No entry** → add it.
+- **An entry with the same address you just health-checked** → nothing needs doing. Say so and stop. Do not
+  re-register, and do not ask the user whether to: there is no difference to apply, and a prompt with only one
+  sensible answer is noise.
+- **An entry with a different address** → this is a robot that moved networks. Say what is registered and what you
+  found, and remove the old one with `claude mcp remove stackchan -s user` before adding it again — only after the
+  user agrees.
 
 ## 4. Confirm
 
-Tell the user to restart Claude Code so the server loads, then to run `/mcp` to see `stackchan` connected. Once it
-is, `get_robot_info` reports the MOD version and what is on screen, which is the quickest proof the whole path
-works.
+If the robot's tools are already available in this session, call `get_robot_info` and report the MOD version and
+what is on screen. That is the whole path proven, and no restart is needed — do not tell the user to restart when
+the tools are already there.
 
-Report the address you registered and whether the health check passed. Do not claim the robot is working if you
-only registered it — the tools do not load until the session restarts.
+If you have just added or changed the registration, the tools do **not** load until Claude Code restarts. Say that
+plainly, and do not claim the robot is working: you registered an address that answered a health check, which is
+not the same thing. Tell the user to restart and then run `/mcp` to see `stackchan` connected.
+
+Either way, report the address and whether the health check passed.
