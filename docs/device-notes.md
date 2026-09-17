@@ -648,6 +648,49 @@ Practical rules:
 - The MOD's `restart_robot` requires `accept_display_blank: true` and says so in its description: it causes a blank
   screen rather than recovering one.
 
+## ⚠ The MCP server can stop listening while the robot looks perfectly healthy (2026-09-17)
+
+**Symptom: the face is drawing, the robot answers `ping`, and port 8080 refuses every connection.** This is the
+inverse of the display failure below - there, drawing stops and the tools keep answering; here, the tools stop and
+everything visible keeps working. Every casual signal says the robot is fine.
+
+What was observed, with the user watching the screen:
+
+| Check | Result |
+|---|---|
+| Face on the panel | Drawing normally, blinking and breathing |
+| `ping 192.168.6.75` | 3/3 packets, 0% loss |
+| `GET /health` | **Connection refused**, immediately, across ~40 s of retries |
+| `POST /mcp` | Connection refused |
+| ARP entry | Present, correct MAC |
+
+**`ECONNREFUSED` is the diagnostic.** It means the TCP stack is up and actively rejecting, so nothing is bound to
+8080. That rules out three things at once:
+
+- **Not a crash.** An uncaught exception or rejection aborts XS and restarts the ESP32, which would restart the
+  listener and show the boot splash. Neither happened.
+- **Not the stalled-connection hang** recorded under device limits: that makes the server *unresponsive*, so
+  connections hang rather than being refused, and it clears on its own. This did not clear in 40 s.
+- **Not a network or Wi-Fi problem.** Ping and ARP were clean throughout.
+
+The MOD's listener went away while the host firmware carried on. **Only a hardware reset brought it back** (uptime
+52 s afterwards). Nothing recovered it on its own.
+
+**Untestable after the fact.** Uptime is served by the very server that is down, so there is no way to learn
+whether the device had rebooted before the failure. A serial logger cannot help either: attaching one resets this
+device on every port open (see below), destroying the state you would be reading.
+
+**Unestablished hypothesis, recorded so it can be tested rather than believed.** The failure window began after a
+Claude Code client connected and sat idle holding the registration. Streamable HTTP clients commonly open a GET for
+a notification stream, and this firmware has no SSE - a request whose response never completes is exactly the shape
+the stalled-connection limit describes, and a held connection that is never handed to MOD code could plausibly
+starve the accept loop without raising anything the MOD can catch. That is a guess. What would test it: leave a
+client connected and idle for a long period with nothing else touching the robot, and see whether the listener
+dies again.
+
+**If you meet this:** check `ping` and the face before assuming the robot is dead, then press the bottom reset
+button. Do not reflash - the MOD is intact, and the failure is in what it is doing, not in what was written.
+
 ## ⚠ The display can stop rendering with no reset at all (2026-09-17)
 
 **Symptom: the panel is backlit and completely empty.** No face, no startup splash residue, no speech balloon —

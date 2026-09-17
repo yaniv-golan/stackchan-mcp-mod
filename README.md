@@ -291,7 +291,7 @@ registered separately — the skill describes tools you will not have until you 
 does it for you:
 
 ```
-/stackchan-setup
+/stackchan-robot:setup
 ```
 
 It finds the robot by MAC in the ARP table (or takes an address), checks that `GET /health` answers before

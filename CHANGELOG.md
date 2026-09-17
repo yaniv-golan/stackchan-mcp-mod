@@ -8,13 +8,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- `/stackchan-setup`, a plugin command that registers the robot with Claude Code: it finds the robot by MAC in the
+- `/stackchan-robot:setup`, a plugin command that registers the robot with Claude Code: it finds the robot by MAC in the
   ARP table or takes an address, checks `GET /health` answers before registering anything, and passes the bearer
   token straight from the macOS Keychain into `claude mcp add` by command substitution, so the token never reaches
   the transcript.
 
 ### Documented
 
+- **The MCP server can stop listening while the robot looks healthy.** The face draws, `ping` is clean, and port
+  8080 refuses every connection - the inverse of the known display failure, and the refusal is what distinguishes
+  it from the stalled-connection hang (which makes the server unresponsive rather than absent) and from a crash
+  (which reboots the device and restarts the listener). Only a hardware reset recovered it. See
+  `docs/device-notes.md`, which also records an untested hypothesis about idle client connections so it can be
+  tested rather than assumed.
 - **The plugin installs the skill, not the robot.** The tools come from the MOD on the device and are registered
   separately; the README said so 130 lines earlier under a different heading, so following the plugin section end to
   end left you with a skill describing 33 tools and none of them. It now says so in place, with the reason the
