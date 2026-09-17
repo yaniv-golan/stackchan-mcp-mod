@@ -245,5 +245,5 @@ Wait for the next input event recorded after this call starts, optionally filter
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `kind` | string (button, touch, touch-panel, imu) | no | Only resolve for an event of this kind |
-| `timeout_ms` | integer | no | Max time to wait in milliseconds (default 5000, clamped 100-30000) |
+| `timeout_ms` | integer | no | Max time to wait in milliseconds (default 5000, clamped 100-45000). Waiting longer is cheap: the call returns as soon as an event arrives, so a long wait mainly avoids repeated empty polls. Prefer one long wait over several short ones. |
 

@@ -1,0 +1,50 @@
+{
+  "comment": "Example rules for scripts/react.py. Try them with --events-from examples/captured-events.txt first, then against a robot as a dry run, then with --act. Rules are matched in order and every matching rule fires.",
+  "rules": [
+    {
+      "name": "greet a swipe",
+      "comment": "Stroking the head strip forwards. The release event carries the tap details, so match press to react as it happens.",
+      "when": { "kind": "touch-panel", "gesture": "forwardSwipe" },
+      "then": [
+        { "action": "emotion", "emotion": "HAPPY" },
+        { "action": "leds", "r": 0, "g": 40, "b": 10, "duration_ms": 3000 },
+        { "action": "say", "message": "That is nice." }
+      ],
+      "min_interval_seconds": 15
+    },
+    {
+      "name": "protest a shake",
+      "when": { "kind": "imu", "motion": "shake" },
+      "then": [
+        { "action": "emotion", "emotion": "ANGRY" },
+        { "action": "tone", "hz": 220, "duration_ms": 250 },
+        { "action": "wait", "seconds": 1 },
+        { "action": "emotion", "emotion": "NEUTRAL" }
+      ],
+      "min_interval_seconds": 20
+    },
+    {
+      "name": "ask for help when tipped over",
+      "comment": "Any of the fallen motions. A list means any of these values.",
+      "when": {
+        "kind": "imu",
+        "motion": ["fallenForward", "fallenBackward", "fallenLeft", "fallenRight", "upsideDown"]
+      },
+      "then": [
+        { "action": "emotion", "emotion": "SAD" },
+        { "action": "show", "text": "Help?", "seconds": 20 },
+        { "action": "blink", "r": 60, "g": 0, "b": 0, "duration_ms": 400 }
+      ],
+      "min_interval_seconds": 30
+    },
+    {
+      "name": "look up when the screen is touched",
+      "when": { "kind": "touch", "phase": "began" },
+      "then": [
+        { "action": "look", "yaw_degrees": 0, "pitch_degrees": -20, "duration_seconds": 0.6 },
+        { "action": "emotion", "emotion": "DOUBTFUL" }
+      ],
+      "min_interval_seconds": 10
+    }
+  ]
+}

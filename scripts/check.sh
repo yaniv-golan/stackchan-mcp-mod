@@ -11,6 +11,15 @@ for file in scripts/*.sh; do
 done
 echo "[check] shell syntax ok"
 
+python3 -m py_compile scripts/*.py
+echo "[check] python syntax ok"
+
+# The example rules are documentation that can be wrong. Loading them exercises the validator, and
+# replaying the captured events exercises the matcher - neither needs a robot.
+scripts/selftest.py --list >/dev/null
+scripts/react.py examples/rules.json --events-from examples/captured-events.txt >/dev/null
+echo "[check] example rules load and replay ok"
+
 if command -v npx >/dev/null; then
   npx --yes @biomejs/biome@1.9.4 ci mod
   echo "[check] biome lint and format ok"

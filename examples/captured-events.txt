@@ -1,0 +1,12 @@
+Captured from a robot with: scripts/mcp.sh '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_recent_events","arguments":{"limit":64}}}'
+Kept here so rules can be tried offline: scripts/react.py examples/rules.json --events-from examples/captured-events.txt
+
+8 event(s), newest last (highest seq overall: 8):
+seq=1 kind=touch-panel ticks=101000 gesture=press position=100 intensity=1
+seq=2 kind=touch-panel ticks=101120 gesture=release position=0 intensity=0 tap.durationMs=120 tap.maxMovement=0 tap.position=100
+seq=3 kind=touch-panel ticks=104000 gesture=forwardSwipe position=-50 intensity=3
+seq=4 kind=imu ticks=118000 motion=shake
+seq=5 kind=imu ticks=118400 motion=shake
+seq=6 kind=touch ticks=131000 phase=began id=0 x=160 y=120
+seq=7 kind=imu ticks=147000 motion=fallenLeft
+seq=8 kind=button ticks=160000 name=power pressed=true

@@ -152,6 +152,55 @@ It also prints state changes, because anything watching only for event lines can
 quiet room from a dead script. The bearer token is never handled by it — `scripts/mcp.sh` fetches it
 from the OS keychain per call.
 
+## Checking it still works
+
+A build proves the JavaScript compiles, and a tool call can return success while the head never moves.
+`scripts/selftest.py` runs the checks that catch that: it asserts consequences rather than status — a
+pose call that returns before its own duration has elapsed fails, a gaze that leaves the head pointing
+straight ahead fails, a photo whose encoded size is over the body budget fails — and it fails if the
+robot serves a tool no check exercises.
+
+```sh
+STACKCHAN_HOST=192.168.1.20 scripts/selftest.py          # read-only checks; changes nothing
+STACKCHAN_HOST=192.168.1.20 scripts/selftest.py --all    # also visual, motion, audio and capture
+scripts/selftest.py --list                               # what it would run, no robot needed
+```
+
+Only the read tier runs by default, because the others light LEDs, turn the head, make noise and use the
+camera. `--json` prints one machine-readable report. `restart_robot` is never run by any flag: on this
+hardware a software restart leaves the screen dead until someone power-cycles it by hand.
+
+## Collecting diagnostics
+
+`scripts/diagnose.py` writes one read-only bundle — health, robot info, input capabilities, power
+registers, head pose, recent events, the tool list, HTTP conformance probes, and the local repo state
+with file hashes — into `build/diagnostics-<timestamp>/`:
+
+```sh
+STACKCHAN_HOST=192.168.1.20 scripts/diagnose.py
+```
+
+Every file is passed through a redaction step first, so the bundle is safe to attach to an issue. A robot
+that does not answer is a finding, not a crash: the bundle is still written, and says so.
+
+## Reacting to events
+
+`scripts/react.py` pairs input events with small routines, so the robot does something when nobody is
+talking to it:
+
+```sh
+scripts/react.py examples/rules.json --events-from examples/captured-events.txt   # offline, no robot
+STACKCHAN_HOST=192.168.1.20 scripts/react.py examples/rules.json                  # dry run
+STACKCHAN_HOST=192.168.1.20 scripts/react.py examples/rules.json --act            # for real
+```
+
+Rules are data: a rule matches event fields by equality and names actions from a fixed vocabulary, so
+there is no expression to evaluate, and a typo is refused at load rather than silently never matching.
+The vocabulary covers the face, the LEDs, the head, speech and tones — and deliberately excludes the
+camera and microphone, so a background process cannot become a capture trigger nobody sees. Nothing
+reaches the robot without `--act`, every rule has a minimum interval, and the run as a whole has an
+actions-per-minute ceiling.
+
 ## Troubleshooting
 
 **The screen is blank but the robot answers MCP calls.** Display initialization after a warm reset is unreliable on
@@ -173,7 +222,8 @@ reports levels corrected for the measured offset, and the recording tools apply 
 ## Development
 
 ```sh
-scripts/check.sh   # lint and format (Biome) plus shell syntax; no robot needed
+scripts/check.sh   # lint, format, syntax, and the example rules; no robot needed
+STACKCHAN_HOST=<robot-ip> scripts/selftest.py --all   # the checks that need hardware
 ```
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) — the short version is that a change should be tried on a real robot,

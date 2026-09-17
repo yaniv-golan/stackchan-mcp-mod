@@ -135,6 +135,11 @@ secret ever being visible. Ask the person for a route rather than searching thei
 | `sing` fails with "does not support singing" | Wrong TTS engine configured | Expected; use `say_message` |
 | Head did not move but the call succeeded | Torque released too early, or something is blocking it | Retry with `hold: true` and ask the person to look |
 
+With the repository to hand, two scripts answer "is it me or the robot?" faster than tool calls can.
+`STACKCHAN_HOST=<ip> scripts/diagnose.py` writes a read-only bundle — health, robot info, power registers, the
+tool list, HTTP conformance — that is safe to paste into an issue. `scripts/selftest.py` checks the tools still do
+what they claim; its `--all` tiers move the head and make noise, so ask the person first.
+
 **Do not call `restart_robot`.** It reboots in software, and on this hardware that leaves the display dead until
 someone physically power-cycles the robot. The tool requires an explicit acknowledgement for exactly this reason.
 If a reboot is genuinely needed, ask the person to press the reset button instead — a hardware reset is safe.

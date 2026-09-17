@@ -55,6 +55,17 @@ starting point of the public record.
 - The `MCP-Protocol-Version` header is validated, answering 400 for a version this server does not implement, as
   the specification requires.
 - `get_input_capabilities` reports screen touch from boot rather than only after the first touch.
+- `scripts/selftest.py` exercises the tools and asserts what they should have caused — that a pose call waits for
+  its own motion, that a gaze actually turns the head, that a photo is a PNG inside the body budget — and fails if
+  the robot serves a tool no check covers. Only the read-only tier runs by default; `restart_robot` never runs.
+- `scripts/diagnose.py` writes a read-only diagnostics bundle (health, robot info, power registers, the tool list,
+  HTTP conformance probes, local repo state) with every file redacted, so it can be attached to an issue.
+- `scripts/react.py` runs small routines when the robot is touched, shaken or tipped over, from a rules file that
+  is data rather than code. Its action vocabulary deliberately excludes the camera and microphone, it does nothing
+  without `--act`, and it can be tried offline against `examples/captured-events.txt`.
+- `scripts/stackchan_client.py` and `scripts/stackchan_events.py` hold the one MCP client and the one
+  event-following loop the Python scripts share. Neither handles the bearer token.
+- `scripts/check.sh` also checks Python syntax and loads the example rules.
 
 ### Known issues
 

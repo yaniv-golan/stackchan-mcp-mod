@@ -42,7 +42,9 @@ working because the build passed or a tool call returned ok.
 | `mod/indicators.js` | LED and chirp shown while the camera or microphone is in use |
 | `mod/face-smile.js` | Custom face: a real smile for HAPPY, and the only route to screen touches |
 | `mod/png.js`, `mod/base64.js` | Encoders written for this device's memory limits |
-| `scripts/` | Build, install, check, configure, a raw MCP client, and the event watcher |
+| `scripts/` | Build, install, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector and the rules runner |
+| `scripts/stackchan_client.py`, `scripts/stackchan_events.py` | Shared by the Python scripts: one MCP client and one event-following loop. Neither holds the token; `scripts/mcp.sh` fetches it per call |
+| `examples/` | A rules file for `scripts/react.py`, and captured events to replay it against offline |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
 | `docs/architecture.md` | How the pieces fit and what happens at boot |
 | `docs/device-notes.md` | The empirical record: measurements, firmware bugs, dead ends |
@@ -81,6 +83,20 @@ streaming is impossible over this transport, not because it is more convenient.
 If multi-step choreography is wanted, prefer one script that performs one named routine over a general
 robot-control CLI: a single reviewable action beats an arbitrary surface.
 
+Three scripts do call tools an assistant could call itself, which is worth being precise about, because
+running a script goes through "may run Bash" — a permission granted far more casually than a camera one:
+
+- `scripts/selftest.py` exercises the capture tools in its `--capture` tier but never surfaces what it
+  captured: it asserts that a photo is a PNG inside the body budget and throws it away, and reports
+  loudness rather than audio. The device's own capture indicators fire regardless of which path triggered
+  them.
+- `scripts/react.py` can make the robot speak and move, so its action vocabulary deliberately contains no
+  capture action at all, and nothing reaches the robot without `--act`.
+- `scripts/diagnose.py` is read-only.
+
+That is the test to apply to a new script: not "is it convenient" but "could it do something an assistant
+would otherwise have to ask for". A `photo.sh` fails it.
+
 ## Conventions
 
 - Biome enforces formatting and lint; run `scripts/check.sh` before proposing a change.
@@ -90,6 +106,8 @@ robot-control CLI: a single reviewable action beats an arbitrary surface.
   over-careful until you know what they prevent — keep those explanations.
 - Record new hardware findings in `docs/device-notes.md` with the measurement, not just the conclusion.
 - Update `CHANGELOG.md` under `Unreleased`.
+- A behaviour worth keeping belongs in `scripts/selftest.py` as a check that asserts the consequence, not
+  the status. Every tool the robot serves must be covered by one, or the suite's own coverage check fails.
 
 ## Things that will waste your time
 
