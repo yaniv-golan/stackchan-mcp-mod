@@ -2,7 +2,7 @@
 
 # Tool reference
 
-28 tools, read from a robot on 2026-09-17.
+33 tools, read from a robot on 2026-09-17.
 
 ## `blink_leds`
 
@@ -16,6 +16,16 @@ Blink the head-ring LEDs at a color. r/g/b are clamped to 0..255, duration_ms (t
 | `duration_ms` | number | yes | Blink period in milliseconds, clamped to 50..5000 |
 | `index` | integer | no | First LED index to affect, 0..11 (default: all LEDs) |
 | `count` | integer | no | Number of LEDs to affect starting at index, 1..12 (default: all LEDs) |
+
+## `camera_take_photo`
+
+Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. Color uses a 256-color palette, the same size as grayscale; the robot cannot send a larger image than about 24 KB, so bigger sizes are refused.
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `size` | string (160x120, 176x144, 240x176) | no | Capture size, default 160x120. Larger sizes need more memory and may fail. |
+| `color` | boolean | no | Return a 256-color palette PNG instead of the default grayscale |
+| `show_on_screen` | boolean | no | Also display the captured photo on the robot's own screen, in place of the face, for about ten seconds before the face returns. Default false. If the screen cannot show a real picture right now, it falls back to a coarse color mosaic instead - the result text says which one happened. |
 
 ## `get_head_pose`
 
@@ -47,13 +57,9 @@ List recently recorded input events (button presses, screen touches, head touch-
 
 ## `get_recorded_audio`
 
-Record from the microphone for duration_ms (integer, default 1000, clamped 200..2000), then downmix to mono and downsample it until the resulting WAV fits under max_bytes (default and hard cap 20000, clamped 1000..20000), and return it as an audio resource plus a short summary. Only use this when the actual audio bytes are needed; prefer listen for a loudness summary. Fails if even the maximum downsampling would not fit — retry with a shorter duration_ms.
+Renamed to `mic_get_audio`. Do not call this; call that instead and update your permission rules.
 
-| Argument | Type | Required | Description |
-|---|---|---|---|
-| `duration_ms` | integer | no | Recording length in milliseconds, default 1000, clamped 200..2000 |
-| `max_bytes` | integer | no | Maximum size in bytes of the returned WAV file, default and hard cap 20000, clamped 1000..20000 |
-| `gain` | number | no | Software gain applied to the returned audio, 1..32 (default 16, compensating this robot's quiet capture path; pass 1 for the raw recording) |
+No arguments.
 
 ## `get_robot_info`
 
@@ -78,11 +84,9 @@ Turn off the head-ring LEDs. Optionally limit the effect to a range of LEDs with
 
 ## `listen`
 
-Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000) and report how loud it was: sample format, overall and peak RMS loudness (0..1 and dBFS), a qualitative level, and loudness per ~200ms slice. This does NOT transcribe speech — it only measures loudness.
+Renamed to `mic_listen`. Do not call this; call that instead and update your permission rules.
 
-| Argument | Type | Required | Description |
-|---|---|---|---|
-| `duration_ms` | integer | no | Recording length in milliseconds, default 2000, clamped 200..5000 |
+No arguments.
 
 ## `look_at`
 
@@ -99,6 +103,33 @@ Start gaze tracking at a 3D point in meters, right-handed body frame: +x forward
 Stop gaze tracking started by look_at and leave the head at its current pose.
 
 No arguments.
+
+## `mic_get_audio`
+
+Record from the microphone for duration_ms (integer, default 1000, clamped 200..2000), then downmix to mono and downsample it until the resulting WAV fits under max_bytes (default and hard cap 20000, clamped 1000..20000), and return it as an audio resource plus a short summary. Only use this when the actual audio bytes are needed; prefer mic_listen for a loudness summary. Fails if even the maximum downsampling would not fit — retry with a shorter duration_ms.
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `duration_ms` | integer | no | Recording length in milliseconds, default 1000, clamped 200..2000 |
+| `max_bytes` | integer | no | Maximum size in bytes of the returned WAV file, default and hard cap 20000, clamped 1000..20000 |
+| `gain` | number | no | Software gain applied to the returned audio, 1..32 (default 16, compensating this robot's quiet capture path; pass 1 for the raw recording) |
+
+## `mic_listen`
+
+Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000) and report how loud it was: sample format, overall and peak RMS loudness (0..1 and dBFS), a qualitative level, and loudness per ~200ms slice. This does NOT transcribe speech — it only measures loudness.
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `duration_ms` | integer | no | Recording length in milliseconds, default 2000, clamped 200..5000 |
+
+## `mic_record_and_play`
+
+Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000), then immediately play the recording back through the speaker. Reports the same loudness summary as mic_listen plus whether playback returned true; false means playback is unsupported or failed on this robot, not that the recording itself failed. Pass gain to amplify the recording in software (the hardware preamp cannot be changed from a MOD).
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `duration_ms` | integer | no | Recording length in milliseconds, default 2000, clamped 200..5000 |
+| `gain` | number | no | Software gain applied before playback, 1..32 (default 16, compensating this robot's quiet capture path; pass 1 for the raw recording) |
 
 ## `play_tone`
 
@@ -121,12 +152,9 @@ Play a rainbow animation on the head-ring LEDs. Optionally limit the effect to a
 
 ## `record_and_play`
 
-Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000), then immediately play the recording back through the speaker. Reports the same loudness summary as listen plus whether playback returned true; false means playback is unsupported or failed on this robot, not that the recording itself failed. Pass gain to amplify the recording in software (the hardware preamp cannot be changed from a MOD).
+Renamed to `mic_record_and_play`. Do not call this; call that instead and update your permission rules.
 
-| Argument | Type | Required | Description |
-|---|---|---|---|
-| `duration_ms` | integer | no | Recording length in milliseconds, default 2000, clamped 200..5000 |
-| `gain` | number | no | Software gain applied before playback, 1..32 (default 16, compensating this robot's quiet capture path; pass 1 for the raw recording) |
+No arguments.
 
 ## `restart_robot`
 
@@ -146,11 +174,12 @@ Speak a message aloud with the configured TTS engine. Returns after playback end
 
 ## `set_emotion`
 
-Change the robot facial expression.
+Change the robot facial expression. All eight emotions change the mouth and eyebrows. intensity (0..1, default 0.7) scales how strongly it is drawn, so a mild mood and a strong one look different; it is quantized to three levels and persists until the next call that sets it.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `emotion` | string (NEUTRAL, ANGRY, SAD, HAPPY, SLEEPY, DOUBTFUL, COLD, HOT) | yes | Emotion to show |
+| `intensity` | number | no | How strongly to express it, 0..1 (default 0.7, unchanged if omitted) |
 
 ## `set_eye_open`
 
@@ -212,6 +241,12 @@ Enable or disable servo torque on the head. With torque off, the head can be mov
 |---|---|---|---|
 | `enabled` | boolean | yes | true to enable torque, false to release it |
 
+## `show_face`
+
+Put the robot's face back on the screen, whatever is there now - a photo, a QR code or a speech balloon. Every tool that replaces the face also restores it on a timer; this is the way to do it early.
+
+No arguments.
+
 ## `show_message`
 
 Show a short text message in a speech balloon on the robot screen. Useful for prompting the person in front of the robot (for example telling them when to speak). Keep it short; the balloon is small.
@@ -220,23 +255,22 @@ Show a short text message in a speech balloon on the robot screen. Useful for pr
 |---|---|---|---|
 | `text` | string | yes | Message to display |
 | `seconds` | number | no | Hide the balloon automatically after this many seconds, 1..60 (default: leave it up) |
+| `size` | string (small, medium, large) | no | Text size (default medium). small is the host default, about 2 mm tall on this panel and hard to read across a room; medium and large are legible. A robot without the larger fonts falls back to small. |
 
-## `sing`
+## `show_qr`
 
-Sing raw stackchan-voice koe notation through the speaker (koe: string, required, max 200 characters). This needs the stackchan-voice TTS engine; on any other engine it returns a "does not support singing" error, which means the robot is configured for a different voice rather than that anything is broken. koe notation looks like "#C4,450ki#C4,450ra#G4,450ki" (each "#NOTE,MILLISECONDS" token pins one kana mora to a pitch and duration; "#R,150" is a 150ms rest).
+Show a QR code on the robot screen for a link, so a person nearby can scan it with their phone. Fenced to http:// and https:// URLs only (lowercase scheme, 300 characters max) - nothing else is accepted, because a QR code is an actionable link the robot lends its trust to and the person scanning it cannot see where it points. The decoded host is shown as text under the code so they can check it first. Restores the face automatically after seconds (1..60, default 20).
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `koe` | string | yes | stackchan-voice koe notation, max 200 characters |
+| `text` | string | yes | The link to encode. Must start with http:// or https://; refused otherwise. Max 300 characters. |
+| `seconds` | number | no | Seconds to show the code before restoring the face, 1..60 (default 20). |
 
 ## `take_photo`
 
-Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. Color uses a 256-color palette, the same size as grayscale; the robot cannot send a larger image than about 24 KB, so bigger sizes are refused.
+Renamed to `camera_take_photo`. Do not call this; call that instead and update your permission rules.
 
-| Argument | Type | Required | Description |
-|---|---|---|---|
-| `size` | string (160x120, 176x144, 240x176) | no | Capture size, default 160x120. Larger sizes need more memory and may fail. |
-| `color` | boolean | no | Return a 256-color palette PNG instead of the default grayscale |
+No arguments.
 
 ## `wait_for_event`
 
