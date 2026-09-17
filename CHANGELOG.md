@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `/stackchan-setup`, a plugin command that registers the robot with Claude Code: it finds the robot by MAC in the
+  ARP table or takes an address, checks `GET /health` answers before registering anything, and passes the bearer
+  token straight from the macOS Keychain into `claude mcp add` by command substitution, so the token never reaches
+  the transcript.
+
+### Documented
+
+- **The plugin installs the skill, not the robot.** The tools come from the MOD on the device and are registered
+  separately; the README said so 130 lines earlier under a different heading, so following the plugin section end to
+  end left you with a skill describing 33 tools and none of them. It now says so in place, with the reason the
+  registration is not bundled: a plugin manifest is shared by everyone who installs it, while the address is
+  per-user DHCP and the token is a per-user secret.
+- **Moving the robot to another network.** `wifi.ssid` and `wifi.password` are ordinary preferences, so
+  `scripts/set-prefs.py` writes them over BLE like any other; the robot joins on the next boot. Verified on
+  hardware. Worth knowing why it works, because there is a silent-failure path: `stored-wifi.ts` resolves the SSID
+  as `options.ssid ?? readStoredWiFiPreference('ssid')` and `options` comes from the build config, so a firmware
+  with Wi-Fi baked into its manifest would ignore the stored preference while the write still reported success.
+  This build has no `wifi` in its config, so the preference is what boot uses. The robot's address changes
+  afterwards and nothing announces the new one.
+
 ## [0.3.0] - 2026-09-17
 
 Makes the screen worth looking at. Every emotion has a face of its own, the mouth opens while speaking instead of

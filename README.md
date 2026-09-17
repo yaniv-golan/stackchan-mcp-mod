@@ -287,7 +287,16 @@ Or, from a local clone:
 ```
 
 **The plugin installs the skill, not the robot.** The tools themselves come from the MOD on the device, which is
-registered separately — the skill describes tools you will not have until you do:
+registered separately — the skill describes tools you will not have until you do. The plugin ships a command that
+does it for you:
+
+```
+/stackchan-setup
+```
+
+It finds the robot by MAC in the ARP table (or takes an address), checks that `GET /health` answers before
+registering anything, and passes the token straight from the macOS Keychain, so it never appears in the
+conversation. By hand, it is:
 
 ```sh
 claude mcp add --scope user --transport http stackchan http://<robot-ip>:8080/mcp --header "Authorization: Bearer <token>"
