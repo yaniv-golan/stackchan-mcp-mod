@@ -210,6 +210,15 @@ def checks() -> list[Check]:
             note="argument validation refuses before it reaches the hardware",
         ),
         Check(
+            name="a QR code of anything but an http(s) link is refused",
+            tier="read",
+            tool="show_qr",
+            args={"text": "javascript:alert(1)"},
+            expect_error=True,
+            expect=(r"only http",),
+            note="the fencing is the reason this tool exists at all",
+        ),
+        Check(
             name="an out-of-range enum is refused",
             tier="read",
             tool="set_emotion",
@@ -275,6 +284,13 @@ def checks() -> list[Check]:
         ),
         Check(name="speech balloon hides", tier="visual", tool="hide_message"),
         Check(
+            name="the face can be restored",
+            tier="visual",
+            tool="show_face",
+            expect=(r"face is showing",),
+            note="the way back from a photo, a QR code or a balloon",
+        ),
+        Check(
             name="LEDs take a color",
             tier="visual",
             tool="set_leds",
@@ -288,6 +304,14 @@ def checks() -> list[Check]:
         ),
         Check(name="LEDs run a rainbow", tier="visual", tool="rainbow_leds"),
         Check(name="LEDs turn off", tier="visual", tool="leds_off"),
+        Check(
+            name="a QR code appears for a real link",
+            tier="visual",
+            tool="show_qr",
+            args={"text": "https://github.com/yaniv-golan/stackchan-mcp-mod", "seconds": 4},
+            expect=(r"github.com",),
+            note="the host must appear in the result, as it does on screen",
+        ),
         # --- motion: the head actually moves ---------------------------------------------------
         Check(
             name="a pose call waits for the motion it started",
@@ -342,6 +366,16 @@ def checks() -> list[Check]:
             tool="camera_take_photo",
             args={"size": "160x120"},
             expect=(r"Photo: 160x120",),
+            verify=photo_is_usable,
+            tolerate=(r"capture is disabled|not armed",),
+        ),
+        Check(
+            name="a photo can be shown on the robot's own screen",
+            tier="capture",
+            tool="camera_take_photo",
+            args={"size": "160x120", "show_on_screen": True},
+            # Whether it blitted a real bitmap or fell back to the mosaic, it must say which.
+            expect=(r"Photo: 160x120", r"[Ss]hown on screen|mosaic|[Cc]ould not show"),
             verify=photo_is_usable,
             tolerate=(r"capture is disabled|not armed",),
         ),

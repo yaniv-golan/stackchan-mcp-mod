@@ -183,6 +183,20 @@ STACKCHAN_HOST=192.168.1.20 scripts/diagnose.py
 Every file is passed through a redaction step first, so the bundle is safe to attach to an issue. A robot
 that does not answer is a finding, not a crash: the bundle is still written, and says so.
 
+## Picking expressions by hand
+
+Comparing two expressions by watching a timed sequence is miserable, so `scripts/panel.py` serves a small local page
+instead: a button per emotion at each intensity, fields for a message and for speech, and a live readout of what the
+robot has on screen.
+
+```sh
+STACKCHAN_HOST=192.168.1.20 scripts/panel.py      # opens a browser; --no-open to just print the URL
+```
+
+It binds to `127.0.0.1` only, and the browser never sees the bearer token — the page posts to the local server,
+which calls the robot through `scripts/mcp.sh`. A fixed action allowlist keeps it a review tool rather than a
+general robot-control surface: no camera, no microphone, no restart.
+
 ## Reacting to events
 
 `scripts/react.py` pairs input events with small routines, so the robot does something when nobody is

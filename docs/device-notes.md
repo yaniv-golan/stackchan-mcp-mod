@@ -634,7 +634,7 @@ the next flash, and further pulses can then bring it back, so no reset recipe is
 - **Pulsing EN** from pyserial works *more often* than esptool's own post-flash reset, and a second pulse sometimes
   succeeds where the first failed — worth trying before anything else, and it can revive an already-black screen.
 - On this unit the **bottom reset button is strictly better than pulsing EN from the host**. Measured
-  2026-09-17 across four consecutive flashes: **every** flash left the panel blank, one or two EN
+  2026-09-17 across five consecutive flashes: **every** flash left the panel blank, one or two EN
   pulses recovered it sometimes, and the button recovered it every time. Plan on pressing it after
   every install rather than hoping. Treat `scripts/reset.sh` as the
   remote option for when nobody is near the robot, not the first thing to try when someone is.

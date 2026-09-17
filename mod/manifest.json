@@ -22,6 +22,9 @@
       "./robot-state",
       "./font-probe",
       "./balloon",
+      "./screen",
+      "./photo-view",
+      "./tools-qr",
       "./tools-renamed"
     ]
   }

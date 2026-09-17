@@ -13,6 +13,7 @@ import { createEvents } from 'tools-events'
 import { micGainTools } from 'tools-mic-gain'
 import { motionTools } from 'tools-motion'
 import { powerTools } from 'tools-power'
+import { qrTools } from 'tools-qr'
 import { renamedTools } from 'tools-renamed'
 import { systemTools } from 'tools-system'
 
@@ -125,6 +126,7 @@ export function onContextCreated(robot, option) {
     ...speechTools(robot),
     ...motionTools(robot),
     ...appearanceTools(robot),
+    ...qrTools(robot),
     ...events.tools,
     ...cameraTools(robot, { policy, indicators }),
     ...audioTools(robot, { policy, indicators }),

@@ -4,6 +4,7 @@
  */
 import { hideBalloon, showBalloon } from 'balloon'
 import { noteScreen } from 'robot-state'
+import { describeScreen, showFace } from 'screen'
 import Timer from 'timer'
 const BYTE_MIN = 0
 const BYTE_MAX = 255
@@ -277,8 +278,20 @@ function balloonTools(robot) {
       handler: () => {
         clearHideTimer()
         hideBalloon(robot)
-        noteScreen('face')
+        noteScreen(describeScreen())
         return 'Balloon hidden.'
+      },
+    },
+    {
+      name: 'show_face',
+      description:
+        "Put the robot's face back on the screen, whatever is there now - a photo, a QR code or a speech balloon. Every tool that replaces the face also restores it on a timer; this is the way to do it early.",
+      inputSchema: { type: 'object', properties: {} },
+      handler: () => {
+        clearHideTimer()
+        hideBalloon(robot)
+        showFace(robot)
+        return 'The face is showing.'
       },
     },
   ]

@@ -55,6 +55,11 @@ event rules runner — raises the event wait ceiling, and closes a protocol conf
 - `scripts/version.py` reads and sets the one version this project declares in six files, and `scripts/check.sh`
   fails when they disagree.
 - `scripts/check.sh` also checks Python syntax and loads the example rules.
+- `scripts/panel.py` serves a localhost-only page for picking expressions by hand: a button per emotion at each
+  intensity, message and speech fields, and a live state readout. It exists because comparing two expressions by
+  watching a timed sequence is miserable. The browser never sees the bearer token - the page posts to the local
+  server, which calls the robot through `scripts/mcp.sh` - and a fixed action allowlist keeps it from becoming a
+  general robot-control surface.
 
 ### Fixed
 

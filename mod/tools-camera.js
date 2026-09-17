@@ -1,6 +1,8 @@
 import { base64Length } from 'base64'
 import config from 'mc/config'
+import { createPhotoView } from 'photo-view'
 import { encodeRGB565AsPNG, estimatePNGSize } from 'png'
+import { showContent } from 'screen'
 import Timer from 'timer'
 
 // The GC0308 sensor has no JPEG mode, so frames come back as RGB565 and are encoded here.
@@ -18,6 +20,9 @@ const STOP_DELAY_MS = 120
 // capping raw PNG bytes instead would let a 20 KB image become a 27 KB body.
 const MAX_BODY_BYTES = 28000
 const ENVELOPE_ALLOWANCE = 900
+// screen.showContent clamps to [1000, 120000]; ten seconds is enough to look at a photo without
+// leaving the face off for long, matching what the tool description promises callers.
+const SHOW_ON_SCREEN_HOLD_MS = 10000
 
 function imageType() {
   return config.format === 'RGB565BE' ? 'rgb565be' : 'rgb565le'
@@ -52,22 +57,53 @@ export function cameraTools(robot, { policy, indicators } = {}) {
 
   let busy = false
 
-  const capture = async (size, mode) => {
+  const capture = async (size, mode, showOnScreen) => {
     const request = { width: size.width, height: size.height, imageType: imageType() }
     let frame
     try {
       await settle(camera.start(request))
       frame = await camera.capture(request)
       if (!frame) throw new Error('camera returned no frame')
-      const png = encodeRGB565AsPNG(frame.buffer, {
-        width: frame.width,
-        height: frame.height,
-        mode,
-        bigEndian: frame.imageType === 'rgb565be',
-      })
-      return { png, width: frame.width, height: frame.height }
+      const { width, height, imageType: frameImageType } = frame
+      const bigEndian = frameImageType === 'rgb565be'
+
+      if (!showOnScreen) {
+        // Unchanged from before show_on_screen existed: encode straight from the frame's own buffer,
+        // close it in the finally block below.
+        const png = encodeRGB565AsPNG(frame.buffer, { width, height, mode, bigEndian })
+        return { png, width, height, view: undefined }
+      }
+
+      // With show_on_screen, three things would otherwise be alive together: the 38,400-byte frame,
+      // the photo view's own ~48,000-byte copy, and the ~20 KB PNG - and this device's blank screens
+      // correlate with memory pressure (docs/device-notes.md). So take a plain copy of the raw pixels
+      // and release the frame - a disposable, DMA-backed buffer - right away, before building the view
+      // or encoding, rather than holding it until the finally block. This also ends the camera's own
+      // claim on that memory before the display starts blitting from the copy, which is the pairing
+      // the camera DMA sdkconfig note warns about (PSRAM transfers competing with the display).
+      const rawPixels = new Uint8Array(frame.buffer).slice()
+      try {
+        frame.close?.()
+      } catch (error) {
+        trace(`[mcp-mod] camera frame close failed: ${errorMessage(error)}\n`)
+      }
+      frame = undefined
+
+      let view
+      try {
+        view = createPhotoView({ width, height, imageType: frameImageType, buffer: rawPixels.buffer })
+      } catch (error) {
+        // Screen display is a bonus, not the tool's job: still return the photo the caller asked for.
+        trace(`[mcp-mod] photo view unavailable: ${errorMessage(error)}\n`)
+        view = undefined
+      }
+
+      const png = encodeRGB565AsPNG(rawPixels, { width, height, mode, bigEndian })
+      return { png, width, height, view }
     } finally {
-      // The frame buffer is disposable: release it before stopping, and stop even if encoding failed.
+      // Idempotent (camera.ts guards it with its own isClosed flag), so calling it again here when
+      // show_on_screen already closed it above is harmless - and it must still run on every path,
+      // including a throw from encoding.
       try {
         frame?.close?.()
       } catch (error) {
@@ -91,6 +127,11 @@ export function cameraTools(robot, { policy, indicators } = {}) {
             description: `Capture size, default ${DEFAULT_SIZE}. Larger sizes need more memory and may fail.`,
           },
           color: { type: 'boolean', description: 'Return a 256-color palette PNG instead of the default grayscale' },
+          show_on_screen: {
+            type: 'boolean',
+            description:
+              "Also display the captured photo on the robot's own screen, in place of the face, for about ten seconds before the face returns. Default false. If the screen cannot show a real picture right now, it falls back to a coarse color mosaic instead - the result text says which one happened.",
+          },
         },
       },
       handler: async (args) => {
@@ -98,6 +139,7 @@ export function cameraTools(robot, { policy, indicators } = {}) {
         const size = SIZES[key]
         if (!size) throw new Error(`size must be one of ${Object.keys(SIZES).join(', ')}`)
         const mode = args.color === true ? 'palette' : 'gray'
+        const showOnScreen = args.show_on_screen === true
         const estimate = estimatePNGSize(size.width, size.height, mode)
         const bodyEstimate = base64Length(estimate) + ENVELOPE_ALLOWANCE
         if (bodyEstimate > MAX_BODY_BYTES) {
@@ -109,16 +151,34 @@ export function cameraTools(robot, { policy, indicators } = {}) {
         if (busy) throw new Error('camera is busy with another capture')
         busy = true
         try {
-          const { png, width, height } = indicators
-            ? await indicators.camera(() => capture(size, mode))
-            : await capture(size, mode)
+          const { png, width, height, view } = indicators
+            ? await indicators.camera(() => capture(size, mode, showOnScreen))
+            : await capture(size, mode, showOnScreen)
+
+          let screenNote = ''
+          if (showOnScreen) {
+            if (view?.content) {
+              try {
+                showContent(robot, 'photo', view.content, SHOW_ON_SCREEN_HOLD_MS)
+                screenNote =
+                  view.mode === 'bitmap'
+                    ? ' Shown on screen for about 10 seconds.'
+                    : ' Shown on screen for about 10 seconds as a coarse 15-block color mosaic, not a real picture - the bitmap preview was unavailable.'
+              } catch (error) {
+                screenNote = ` Could not show it on screen: ${errorMessage(error)}`
+              }
+            } else {
+              screenNote = ' Could not show it on screen: the preview view failed to build.'
+            }
+          }
+
           return {
             content: [
               // dataBytes (not data): the server base64-encodes this straight into the response buffer.
               { type: 'image', dataBytes: png, mimeType: 'image/png' },
               {
                 type: 'text',
-                text: `Photo: ${width}x${height} ${mode === 'palette' ? '256-color' : 'grayscale'} PNG, ${png.length} bytes.`,
+                text: `Photo: ${width}x${height} ${mode === 'palette' ? '256-color' : 'grayscale'} PNG, ${png.length} bytes.${screenNote}`,
               },
             ],
           }
