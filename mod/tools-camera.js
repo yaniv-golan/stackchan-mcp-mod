@@ -79,7 +79,7 @@ export function cameraTools(robot, { policy, indicators } = {}) {
 
   return [
     {
-      name: 'take_photo',
+      name: 'camera_take_photo',
       description:
         'Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. Color uses a 256-color palette, the same size as grayscale; the robot cannot send a larger image than about 24 KB, so bigger sizes are refused.',
       inputSchema: {
@@ -105,7 +105,7 @@ export function cameraTools(robot, { policy, indicators } = {}) {
             `${key} ${mode === 'palette' ? 'color' : 'grayscale'} would be about ${estimate} bytes of PNG, roughly ${bodyEstimate} bytes on the wire once base64-encoded, over the ${MAX_BODY_BYTES} byte response limit this robot can send; use ${DEFAULT_SIZE} grayscale`,
           )
         }
-        policy?.check('take_photo')
+        policy?.check('camera_take_photo')
         if (busy) throw new Error('camera is busy with another capture')
         busy = true
         try {

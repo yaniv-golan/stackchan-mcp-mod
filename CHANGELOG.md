@@ -6,11 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Breaking
+
+- The four capture tools are renamed so they can be permissioned as one group: `take_photo` →
+  `camera_take_photo`, `listen` → `mic_listen`, `get_recorded_audio` → `mic_get_audio`, `record_and_play` →
+  `mic_record_and_play`. The old names remain registered as refusing stubs that name the replacement, so a
+  stale `permissions.ask` rule fails loudly instead of silently matching nothing. **If you have the old names
+  listed under `permissions.ask` alongside a broad allow rule for this server, upgrading without also updating
+  those rules lets the camera and microphone fire with no prompt** — Claude Code does not warn about this,
+  because its stale-rule check exempts tool names containing an underscore. See [SECURITY.md](SECURITY.md) for
+  the new rule block and the Claude Code version it requires.
+
 ### Added
 
 - `scripts/reset.sh` pulses EN over USB with a settable pulse count, which is the first thing to try when the
   screen is black. The pulse used to exist only inside `scripts/install.sh`, so resetting a robot meant reflashing
   it; `install.sh` now calls this script rather than carrying its own copy.
+- `scripts/selftest.py` gains a check per capture-tool stub, asserting each refuses and names its replacement, and
+  a `tools/list` response-size guard: the encoded `tools/list` body is measured and the check fails above 24 KB,
+  well below the size that has been observed to take the HTTP server down.
 
 ### Fixed
 

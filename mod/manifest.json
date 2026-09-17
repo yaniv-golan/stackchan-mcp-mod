@@ -18,7 +18,10 @@
       "./face-smile",
       "./tools-mic-gain",
       "./capture-policy",
-      "./indicators"
+      "./indicators",
+      "./robot-state",
+      "./font-probe",
+      "./tools-renamed"
     ]
   }
 }

@@ -57,6 +57,13 @@ NEVER_RUN = {
 # size is what has to fit. Keep this in step with MAX_BODY_BYTES in the mod/tools-*.js that produce blobs.
 MAX_ENCODED_BLOB_BYTES = 28000
 
+# `tools/list` is itself an HTTP response, not exempt from the same failure mode as a photo or a
+# recording: it grows with every tool added and every description lengthened, nobody budgets it on
+# purpose, and it is ~14,562 bytes today for 28 tools. A response much over ~28 KB does not merely fail
+# to parse on this device - it kills the HTTP accept loop, and the robot is left on the network with no
+# MCP server at all. 24 KB leaves real margin below that line rather than chasing it.
+TOOLS_LIST_MAX_BYTES = 24000
+
 CALL_TIMEOUT_S = 60
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -208,6 +215,39 @@ def checks() -> list[Check]:
             expect_error=True,
             expect=(r"emotion must be one of",),
         ),
+        # --- read: renamed-capture stubs (a stale permissions.ask rule must fail loudly) --------
+        # `take_photo`, `listen`, `get_recorded_audio` and `record_and_play` were renamed so the capture
+        # surface could be permissioned as one group (see SECURITY.md). The old names stay registered as
+        # refusing stubs precisely so a client still holding an old permissions rule gets a loud refusal
+        # naming the replacement, rather than the rule silently matching nothing. These need no hardware.
+        Check(
+            name="take_photo stub refuses and names its replacement",
+            tier="read",
+            tool="take_photo",
+            expect_error=True,
+            expect=(r"camera_take_photo",),
+        ),
+        Check(
+            name="listen stub refuses and names its replacement",
+            tier="read",
+            tool="listen",
+            expect_error=True,
+            expect=(r"mic_listen",),
+        ),
+        Check(
+            name="get_recorded_audio stub refuses and names its replacement",
+            tier="read",
+            tool="get_recorded_audio",
+            expect_error=True,
+            expect=(r"mic_get_audio",),
+        ),
+        Check(
+            name="record_and_play stub refuses and names its replacement",
+            tier="read",
+            tool="record_and_play",
+            expect_error=True,
+            expect=(r"mic_record_and_play",),
+        ),
         # --- visual: the face and the LEDs -----------------------------------------------------
         Check(
             name="emotion changes",
@@ -297,7 +337,7 @@ def checks() -> list[Check]:
         Check(
             name="a photo arrives as a PNG inside the body budget",
             tier="capture",
-            tool="take_photo",
+            tool="camera_take_photo",
             args={"size": "160x120"},
             expect=(r"Photo: 160x120",),
             verify=photo_is_usable,
@@ -306,7 +346,7 @@ def checks() -> list[Check]:
         Check(
             name="the microphone reports loudness",
             tier="capture",
-            tool="listen",
+            tool="mic_listen",
             args={"duration_ms": 600},
             min_seconds=0.6,
             expect=(r"Recorded ~600 ms", r"Loudness: RMS "),
@@ -315,7 +355,7 @@ def checks() -> list[Check]:
         Check(
             name="a recording arrives as a WAV",
             tier="capture",
-            tool="get_recorded_audio",
+            tool="mic_get_audio",
             args={"duration_ms": 300, "max_bytes": 8000},
             verify=recording_is_usable,
             tolerate=(r"capture is disabled|not armed",),
@@ -323,7 +363,7 @@ def checks() -> list[Check]:
         Check(
             name="a recording plays back",
             tier="capture",
-            tool="record_and_play",
+            tool="mic_record_and_play",
             args={"duration_ms": 400},
             min_seconds=0.4,
             expect=(r"Playback returned: ",),
@@ -349,13 +389,28 @@ RESTORE = [
 DIRTY_TIERS = {"visual", "motion"}
 
 
-def served_tools() -> list[str] | None:
+def served_tools(response: dict | None) -> list[str] | None:
     """The tool names this robot currently serves, or None if it did not answer."""
-    response = robot.rpc("tools/list", timeout_s=20)
     result = robot.result_of(response)
     if not result:
         return None
     return sorted(tool["name"] for tool in result.get("tools", []) if "name" in tool)
+
+
+def tools_list_size(response: dict | None) -> Outcome:
+    """Not a normal tool check: `tools/list` has no tool name to dispatch on, and the thing being
+    measured is the response itself, not a consequence of calling a tool. See TOOLS_LIST_MAX_BYTES
+    above for why this matters more than it looks like it should."""
+    check = Check(name="tools/list response stays under the size that kills the HTTP server", tier="read")
+    if response is None:
+        return Outcome(check, "fail", "the robot did not answer tools/list")
+    # Compact separators, because that is what the device actually puts on the wire; json.dumps'
+    # defaults add a space after every ':' and ',' and would overstate the body by a kilobyte or more.
+    size = len(json.dumps(response, separators=(",", ":")).encode("utf-8"))
+    detail = f"{size} bytes (limit {TOOLS_LIST_MAX_BYTES})"
+    if size > TOOLS_LIST_MAX_BYTES:
+        return Outcome(check, "fail", detail)
+    return Outcome(check, "pass", detail)
 
 
 def run_check(check: Check, served: list[str]) -> Outcome:
@@ -476,14 +531,15 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    served = served_tools()
+    tools_list_response = robot.rpc("tools/list", timeout_s=20)
+    served = served_tools(tools_list_response)
     if served is None:
         robot.emit("the robot did not answer tools/list; nothing to test", stream=sys.stderr)
         return 2
 
     selected = [check for check in all_checks if check.tier in wanted]
     if not arguments.json:
-        print(f"{len(selected) + 1} checks in tiers: {', '.join(sorted(wanted))}")
+        print(f"{len(selected) + 2} checks in tiers: {', '.join(sorted(wanted))}")
 
     def record(outcome: Outcome) -> Outcome:
         if not arguments.json:
@@ -493,7 +549,7 @@ def main() -> int:
                 print(f"       {outcome.detail}")
         return outcome
 
-    outcomes = [record(coverage(served, all_checks))]
+    outcomes = [record(coverage(served, all_checks)), record(tools_list_size(tools_list_response))]
     for check in selected:
         outcomes.append(record(run_check(check, served)))
 

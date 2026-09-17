@@ -85,8 +85,8 @@ class Action:
     build: Callable[[dict], dict]
 
 
-# The whole vocabulary. Deliberately small, and deliberately without take_photo, listen,
-# get_recorded_audio, record_and_play, set_torque and restart_robot - see the module docstring.
+# The whole vocabulary. Deliberately small, and deliberately without camera_take_photo, mic_listen,
+# mic_get_audio, mic_record_and_play, set_torque and restart_robot - see the module docstring.
 ACTIONS: dict[str, Action] = {
     "emotion": Action("set_emotion", lambda s: {"emotion": _choice(s, "emotion", EMOTIONS)}),
     "say": Action("say_message", lambda s: {"message": _text(s, "message")}),

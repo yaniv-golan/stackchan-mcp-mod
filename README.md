@@ -47,10 +47,10 @@ works around rather than bugs in the MOD.
 | `set_face_color` / `set_mouth_open` / `set_eye_open` | Face theme colour and mouth/eyelid position |
 | `get_recent_events` / `wait_for_event` | Reads buffered input events, or waits for the next one |
 | `get_input_capabilities` | Reports which input devices exist and which are being recorded |
-| `take_photo` | Captures a photo as a PNG, grayscale or 256-colour |
-| `listen` | Records and reports loudness (overall, peak, per-200 ms); does not transcribe |
-| `record_and_play` | Records, then plays it back through the speaker |
-| `get_recorded_audio` | Returns a short downsampled mono WAV as an MCP resource |
+| `camera_take_photo` | Captures a photo as a PNG, grayscale or 256-colour |
+| `mic_listen` | Records and reports loudness (overall, peak, per-200 ms); does not transcribe |
+| `mic_record_and_play` | Records, then plays it back through the speaker |
+| `mic_get_audio` | Returns a short downsampled mono WAV as an MCP resource |
 | `play_tone` | Plays a tone (Hz, ms, volume) |
 | `sing` | Sings `koe` notation; needs the stackchan-voice TTS engine |
 | `show_message` / `hide_message` | Shows a short message in a speech balloon on the robot's screen |
@@ -222,7 +222,7 @@ the robot. Report it, since a tool should refuse an oversized result rather than
 
 **Recordings sound almost silent.** They are: the capture path is about 30 dB quiet on this hardware, for reasons
 not yet established (the ES7210's analog preamp has only 4.5 dB left to give, so it is not the cause). `listen`
-reports levels corrected for the measured offset, and the recording tools apply software gain by default.
+`mic_listen` reports levels corrected for the measured offset, and the recording tools apply software gain by default.
 
 ## Development
 

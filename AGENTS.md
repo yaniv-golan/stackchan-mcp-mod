@@ -27,7 +27,7 @@ working because the build passed or a tool call returned ok.
   it, because it costs a reboot rather than an error message.
 - **A large response kills the HTTP server.** Not "fail" — the accept loop dies and the robot stays on the network
   with no MCP server. ~28 KB bodies are known good, ~56 KB is fatal, in between is unmeasured. Budget the
-  **encoded body** (base64 is 4 bytes per 3) and refuse early, as `take_photo` does.
+  **encoded body** (base64 is 4 bytes per 3) and refuse early, as `camera_take_photo` does.
 - **The device is small and slow.** Avoid holding several copies of a large buffer; base64 is written straight into
   the response buffer for this reason.
 

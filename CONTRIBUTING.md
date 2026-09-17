@@ -30,7 +30,7 @@ Two rules matter more than style:
    camera frame, `stop()` the camera) in `finally`.
 2. **Watch the response size.** A large result does not merely fail — it takes the HTTP server down. Bodies up to
    ~28 KB are known good and ~56 KB is fatal. Estimate the **encoded** size before producing a large payload and
-   refuse early, as `take_photo` does.
+   refuse early, as `camera_take_photo` does.
 
 Clamp every numeric input before passing it to hardware. Throw a plain `Error` for bad arguments; the server turns
 that into a well-formed MCP error result.
@@ -38,7 +38,7 @@ that into a well-formed MCP error result.
 ## Tool design
 
 Tools are consumed by a language model, so descriptions carry real weight. State units, ranges and defaults, and
-say what a tool costs — that `say_message` only returns after playback, that `take_photo` pauses the touch strip.
+say what a tool costs — that `say_message` only returns after playback, that `camera_take_photo` pauses the touch strip.
 Where the hardware behaves surprisingly, say so in the description rather than leaving it to be discovered.
 
 ## Versioning and releases

@@ -1,6 +1,7 @@
 /*
  * Motion tools for stackchan-mcp-mod: expose the head-pose and gaze API (robot.motion.*) as MCP tools.
  */
+import { noteGaze, noteTorque } from 'robot-state'
 import Timer from 'timer'
 
 const DEG_TO_RAD = Math.PI / 180
@@ -89,6 +90,7 @@ export function motionTools(robot) {
           await wait(durationSeconds * 1000 + TORQUE_RELEASE_MARGIN_MS)
         } finally {
           if (!hold) await robot.motion.setTorque(false)
+          noteTorque(hold)
         }
 
         const clampedSuffix = clampedNotes.length > 0 ? ` (clamped: ${clampedNotes.join(', ')})` : ''
@@ -124,6 +126,7 @@ export function motionTools(robot) {
         const clampedY = clamp(y, LOOK_AT_MIN_METERS, LOOK_AT_MAX_METERS)
         const clampedZ = clamp(z, LOOK_AT_MIN_METERS, LOOK_AT_MAX_METERS)
         robot.motion.lookAt([clampedX, clampedY, clampedZ])
+        noteGaze(`${clampedX.toFixed(2)}, ${clampedY.toFixed(2)}, ${clampedZ.toFixed(2)}`)
         return `Gaze tracking is now active toward [${clampedX.toFixed(2)}, ${clampedY.toFixed(2)}, ${clampedZ.toFixed(2)}] meters. Call look_away to stop.`
       },
     },
@@ -133,6 +136,7 @@ export function motionTools(robot) {
       inputSchema: { type: 'object', properties: {} },
       handler: () => {
         robot.motion.lookAway()
+        noteGaze(null)
         return 'Gaze tracking stopped.'
       },
     },
@@ -165,6 +169,7 @@ export function motionTools(robot) {
       handler: async (args) => {
         if (typeof args.enabled !== 'boolean') throw new Error('enabled is required and must be a boolean')
         await robot.motion.setTorque(args.enabled)
+        noteTorque(args.enabled)
         return `Torque ${args.enabled ? 'enabled' : 'disabled'}.`
       },
     },

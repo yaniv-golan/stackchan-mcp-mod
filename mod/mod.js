@@ -1,8 +1,9 @@
 import Net from 'net'
 import { onContextCreated as onDefaultContextCreated } from 'app-default-behavior/on-context-created'
 import { createCapturePolicy } from 'capture-policy'
-import { createSmileFace } from 'face-smile'
+import { createSmileFace, getEmotionIntensity, setEmotionIntensity } from 'face-smile'
 import { EmotionNames, emotionFromName } from 'face-state'
+import { probeBalloonFont } from 'font-probe'
 import { createIndicators } from 'indicators'
 import { MCPServer } from 'mcp-server-rich'
 import { appearanceTools } from 'tools-appearance'
@@ -12,6 +13,7 @@ import { createEvents } from 'tools-events'
 import { micGainTools } from 'tools-mic-gain'
 import { motionTools } from 'tools-motion'
 import { powerTools } from 'tools-power'
+import { renamedTools } from 'tools-renamed'
 import { systemTools } from 'tools-system'
 
 const VERSION = '0.2.0'
@@ -42,18 +44,36 @@ function emotionTools(robot) {
   return [
     {
       name: 'set_emotion',
-      description: 'Change the robot facial expression.',
+      description:
+        'Change the robot facial expression. All eight emotions change the mouth and eyebrows. intensity (0..1, ' +
+        'default 0.7) scales how strongly it is drawn, so a mild mood and a strong one look different; it is ' +
+        'quantized to three levels and persists until the next call that sets it.',
       inputSchema: {
         type: 'object',
-        properties: { emotion: { type: 'string', enum: [...EmotionNames], description: 'Emotion to show' } },
+        properties: {
+          emotion: { type: 'string', enum: [...EmotionNames], description: 'Emotion to show' },
+          intensity: {
+            type: 'number',
+            description: 'How strongly to express it, 0..1 (default 0.7, unchanged if omitted)',
+          },
+        },
         required: ['emotion'],
       },
       handler: (args) => {
         const name = typeof args.emotion === 'string' ? args.emotion.toUpperCase() : ''
         const emotion = emotionFromName(name)
         if (emotion === undefined) throw new Error(`emotion must be one of ${EmotionNames.join(', ')}`)
+        let intensity = getEmotionIntensity()
+        if (args.intensity !== undefined) {
+          if (typeof args.intensity !== 'number' || !Number.isFinite(args.intensity)) {
+            throw new Error('intensity must be a number')
+          }
+          // Set the weight before the emotion so the face never paints the old emotion at the new
+          // intensity for a frame.
+          intensity = setEmotionIntensity(args.intensity)
+        }
         robot.face.setEmotion(emotion)
-        return `Robot emotion changed to: ${name}`
+        return `Robot emotion changed to: ${name} (intensity ${intensity.toFixed(2)})`
       },
     },
   ]
@@ -92,6 +112,11 @@ export function onContextCreated(robot, option) {
     trace(`[mcp-mod] default behaviors failed: ${errorMessage(error)}\n`)
   }
 
+  // Resolve the larger balloon font now, on our own stack, where a failure is catchable: Piu's lazy
+  // lookup would otherwise throw from inside a later layout pass and reboot the device. Nothing uses
+  // the answer yet; get_robot_info reports it.
+  probeBalloonFont()
+
   const policy = createCapturePolicy(robot)
   const indicators = createIndicators(robot)
   trace(`[mcp-mod] ${policy.describe()}\n`)
@@ -106,6 +131,9 @@ export function onContextCreated(robot, option) {
     ...audioTools(robot, { policy, indicators }),
     ...micGainTools(),
     ...powerTools(),
+    // The pre-0.3.0 capture tool names, kept as refusing stubs so a stale permissions.ask rule
+    // still matches a real tool and says what to change instead of silently missing.
+    ...renamedTools(),
   ]
   const info = { name: 'stackchan-mcp-mod', version: VERSION, port: MCP_PORT, toolCount: 0, policy }
   tools.push(...systemTools(robot, info))

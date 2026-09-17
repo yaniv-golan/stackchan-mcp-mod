@@ -4,7 +4,10 @@ description: Operate a Stack-chan desk robot through its MCP tools — take phot
 license: Apache-2.0
 metadata:
   version: 0.2.0
-compatibility: Requires the stackchan-mcp-mod MOD installed on an M5StackChan CoreS3 and registered as an MCP server.
+compatibility: Requires the stackchan-mcp-mod MOD, version 0.3.0 or later (the release that renamed the capture
+  tools to camera_take_photo/mic_listen/mic_get_audio/mic_record_and_play), installed on an M5StackChan CoreS3 and
+  registered as an MCP server. Call get_robot_info and check the reported MOD version before assuming a tool by
+  either name exists.
 ---
 
 # Operating a Stack-chan robot
@@ -30,9 +33,11 @@ how you find out the robot is wedged. Never write "the robot is now smiling at y
 
 ## Before a session
 
-Call `get_robot_info` once. It reports the MOD version, which hardware is present, and device limits, and it
-confirms the robot is reachable. If tools start failing mid-session, call it again: an unreachable robot and a
-broken tool look identical from here.
+**Call `get_robot_info` first, always.** It reports the MOD version, which hardware is present, and device limits,
+and it confirms the robot is reachable. Tool names and which tools exist at all have changed between MOD versions
+and vary with hardware and configuration (`sing` only registers on an engine that can sing; the mic-gain tools only
+where the ADC is reachable) — adapt to what this call reports rather than assuming a tool by a given name exists.
+If tools start failing mid-session, call it again: an unreachable robot and a broken tool look identical from here.
 
 ## The camera
 
@@ -50,7 +55,7 @@ robot's screen before capturing is cheap and honest, and it also tells you the d
 
 Two things shape every use:
 
-- **`listen` measures loudness. It does not transcribe.** You will get RMS, peak and per-200 ms slices. Use it for
+- **`mic_listen` measures loudness. It does not transcribe.** You will get RMS, peak and per-200 ms slices. Use it for
   "is anyone talking", "did something just happen", "is the room quiet" — never claim to know what was said.
 - **This hardware captures about 30 dB quiet.** The tools already correct for it: levels are reported with the
   offset applied, and returned audio gets software gain. So trust the qualitative label ("quiet", "conversation
@@ -59,7 +64,7 @@ Two things shape every use:
 Prompt before recording. The recording tools put "Listening..." on screen automatically, but if you want someone to
 say something specific, `show_message` first so they know when to start.
 
-Keep clips short. Recordings are large, and `get_recorded_audio` has to downsample to fit.
+Keep clips short. Recordings are large, and `mic_get_audio` has to downsample to fit.
 
 ## When a capture is refused
 
@@ -74,8 +79,9 @@ absent from the tool list.
 `say_message` returns only after playback finishes — a sentence can take ten to thirty seconds, during which
 nothing else happens. Write one short sentence rather than a paragraph, and do not queue several in a row.
 
-The voice depends on the configured engine. `sing` needs the stackchan-voice engine specifically; on other engines
-it fails cleanly, which is informative rather than broken.
+The voice depends on the configured engine. `sing` needs the stackchan-voice engine specifically, and only
+registers as a tool at all when the robot has one — on any other engine it is simply absent from the tool list,
+which is expected rather than broken, not a call you can make and have refused.
 
 ## Head movement
 
@@ -132,7 +138,7 @@ secret ever being visible. Ask the person for a route rather than searching thei
 | Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down | Wait ~10s for the listener to restart; if it does not, the person must reset the robot |
 | Screen blank, tools still answer | Either display init failed after a warm reset, or the display stopped rendering mid-session; neither is your fault | Ask whether the screen is dark or lit-but-empty, and call `get_robot_info`: continuous uptime means nothing crashed. A dark panel needs a power-button cycle, a lit one the bottom reset button. No tool can fix either |
 | A tool reports the camera or mic is busy | Another capture is in flight | Wait and retry once; do not hammer it |
-| `sing` fails with "does not support singing" | Wrong TTS engine configured | Expected; use `say_message` |
+| `sing` is not in the tool list | The configured TTS engine cannot sing | Expected; use `say_message` |
 | Head did not move but the call succeeded | Torque released too early, or something is blocking it | Retry with `hold: true` and ask the person to look |
 
 With the repository to hand, two scripts answer "is it me or the robot?" faster than tool calls can.
@@ -151,7 +157,7 @@ The robot is more engaging when tools are combined with a beat of timing, rather
 **Look and report**: point the head where you want to see (`set_head_pose`), take a photo, describe it. If the
 frame is wrong, adjust and retake instead of apologising for a bad picture.
 
-**Ask and wait**: `show_message` with the question, `wait_for_event` for a touch, or `listen` for a response.
+**Ask and wait**: `show_message` with the question, `wait_for_event` for a touch, or `mic_listen` for a response.
 Give the person time to react — a 2-second window is not enough for someone to look up and act.
 
 **React to what happened**: on a touch or a shake, an emotion plus a short line plus a small head move reads as one

@@ -5,8 +5,8 @@
  * Same response-size ceiling as tools-camera.js applies here: an oversized response body
  * never finishes sending and takes the HTTP server down. This device's mic format is 16 kHz,
  * 16-bit, stereo (~64 KB per second of raw audio; see WAV_HEADER_SIZE users below), so raw
- * recordings are never returned. `listen` and `record_and_play` only ever return a text loudness
- * summary. `get_recorded_audio` downsamples to a small mono WAV and refuses anything that would
+ * recordings are never returned. `mic_listen` and `mic_record_and_play` only ever return a text
+ * loudness summary. `mic_get_audio` downsamples to a small mono WAV and refuses anything that would
  * not fit under MAX_AUDIO_BYTES.
  */
 const WAV_HEADER_SIZE = 44
@@ -317,7 +317,7 @@ function gainAdvice(peak) {
   if (peak <= 0) return ''
   const headroom = 0.9 / peak
   if (headroom < 1.5) return ' Levels already use the available range.'
-  return ` About ${headroom.toFixed(1)}x software gain would fill the range (pass gain to record_and_play or get_recorded_audio).`
+  return ` About ${headroom.toFixed(1)}x software gain would fill the range (pass gain to mic_record_and_play or mic_get_audio).`
 }
 
 export function audioTools(robot, { policy, indicators } = {}) {
@@ -358,7 +358,7 @@ export function audioTools(robot, { policy, indicators } = {}) {
   if (canRecord) {
     tools.push(
       {
-        name: 'listen',
+        name: 'mic_listen',
         description:
           'Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000) and report how loud it was: sample format, overall and peak RMS loudness (0..1 and dBFS), a qualitative level, and loudness per ~200ms slice. This does NOT transcribe speech — it only measures loudness.',
         inputSchema: {
@@ -389,9 +389,9 @@ export function audioTools(robot, { policy, indicators } = {}) {
         },
       },
       {
-        name: 'record_and_play',
+        name: 'mic_record_and_play',
         description:
-          'Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000), then immediately play the recording back through the speaker. Reports the same loudness summary as listen plus whether playback returned true; false means playback is unsupported or failed on this robot, not that the recording itself failed. Pass gain to amplify the recording in software (the hardware preamp cannot be changed from a MOD).',
+          'Record from the microphone for duration_ms (integer, default 2000, clamped 200..5000), then immediately play the recording back through the speaker. Reports the same loudness summary as mic_listen plus whether playback returned true; false means playback is unsupported or failed on this robot, not that the recording itself failed. Pass gain to amplify the recording in software (the hardware preamp cannot be changed from a MOD).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -437,9 +437,9 @@ export function audioTools(robot, { policy, indicators } = {}) {
         },
       },
       {
-        name: 'get_recorded_audio',
+        name: 'mic_get_audio',
         description:
-          'Record from the microphone for duration_ms (integer, default 1000, clamped 200..2000), then downmix to mono and downsample it until the resulting WAV fits under max_bytes (default and hard cap 20000, clamped 1000..20000), and return it as an audio resource plus a short summary. Only use this when the actual audio bytes are needed; prefer listen for a loudness summary. Fails if even the maximum downsampling would not fit — retry with a shorter duration_ms.',
+          'Record from the microphone for duration_ms (integer, default 1000, clamped 200..2000), then downmix to mono and downsample it until the resulting WAV fits under max_bytes (default and hard cap 20000, clamped 1000..20000), and return it as an audio resource plus a short summary. Only use this when the actual audio bytes are needed; prefer mic_listen for a loudness summary. Fails if even the maximum downsampling would not fit — retry with a shorter duration_ms.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -513,32 +513,46 @@ export function audioTools(robot, { policy, indicators } = {}) {
     )
   }
 
-  tools.push(
-    {
-      name: 'play_tone',
-      description:
-        'Play a pure tone through the speaker at hz Hz (required, clamped 100..8000) for duration_ms milliseconds (required, clamped 20..3000), at an optional volume (0..1, default the current speaker volume). Resolves once playback finishes.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          hz: { type: 'number', description: 'Tone frequency in Hz, clamped 100..8000' },
-          duration_ms: { type: 'integer', description: 'Tone length in milliseconds, clamped 20..3000' },
-          volume: { type: 'number', description: 'Playback volume, 0..1 (default: current speaker volume)' },
-        },
-        required: ['hz', 'duration_ms'],
+  tools.push({
+    name: 'play_tone',
+    description:
+      'Play a pure tone through the speaker at hz Hz (required, clamped 100..8000) for duration_ms milliseconds (required, clamped 20..3000), at an optional volume (0..1, default the current speaker volume). Resolves once playback finishes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        hz: { type: 'number', description: 'Tone frequency in Hz, clamped 100..8000' },
+        duration_ms: { type: 'integer', description: 'Tone length in milliseconds, clamped 20..3000' },
+        volume: { type: 'number', description: 'Playback volume, 0..1 (default: current speaker volume)' },
       },
-      handler: async (args) => {
-        const hz = requireClampedNumber(args, 'hz', TONE_HZ_MIN, TONE_HZ_MAX)
-        const durationMs = requireClampedInteger(args, 'duration_ms', TONE_DURATION_MIN_MS, TONE_DURATION_MAX_MS)
-        const volume = optionalClampedNumber(args, 'volume', VOLUME_MIN, VOLUME_MAX)
-        await audio.tone(hz, durationMs, volume)
-        return `Played a ${hz} Hz tone for ${durationMs} ms${volume === undefined ? '' : ` at volume ${volume}`}.`
-      },
+      required: ['hz', 'duration_ms'],
     },
-    {
+    handler: async (args) => {
+      const hz = requireClampedNumber(args, 'hz', TONE_HZ_MIN, TONE_HZ_MAX)
+      const durationMs = requireClampedInteger(args, 'duration_ms', TONE_DURATION_MIN_MS, TONE_DURATION_MAX_MS)
+      const volume = optionalClampedNumber(args, 'volume', VOLUME_MIN, VOLUME_MAX)
+      await audio.tone(hz, durationMs, volume)
+      return `Played a ${hz} Hz tone for ${durationMs} ms${volume === undefined ? '' : ` at volume ${volume}`}.`
+    },
+  })
+
+  // `sing` only makes sense when the active TTS can stream koe notation. capabilities.ts declares
+  // TTS.streamKoe as optional, and runtime-audio.ts's own sing() checks `tts.streamKoe` at call time -
+  // that is the capability probed here, not a preference: SECURITY.md states this MOD reads only
+  // `mcp.token` and `mcp.capture`, and reading `tts.type` from preferences would break that. Any probe
+  // failure is treated as "cannot sing" so a throwing probe cannot reboot the robot.
+  let canSing = false
+  try {
+    canSing = typeof audio.tts?.streamKoe === 'function'
+  } catch (error) {
+    trace(`[mcp-mod] sing capability probe failed: ${errorMessage(error)}\n`)
+    canSing = false
+  }
+
+  if (canSing) {
+    tools.push({
       name: 'sing',
       description:
-        'Sing raw stackchan-voice koe notation through the speaker (koe: string, required, max 200 characters). This needs the stackchan-voice TTS engine; on any other engine it returns a "does not support singing" error, which means the robot is configured for a different voice rather than that anything is broken. koe notation looks like "#C4,450ki#C4,450ra#G4,450ki" (each "#NOTE,MILLISECONDS" token pins one kana mora to a pitch and duration; "#R,150" is a 150ms rest).',
+        'Sing raw stackchan-voice koe notation through the speaker (koe: string, required, max 200 characters). Registered because the active TTS supports singing; if the engine is swapped after boot and no longer does, this returns a "does not support singing" error instead. koe notation looks like "#C4,450ki#C4,450ra#G4,450ki" (each "#NOTE,MILLISECONDS" token pins one kana mora to a pitch and duration; "#R,150" is a 150ms rest).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -555,8 +569,8 @@ export function audioTools(robot, { policy, indicators } = {}) {
         if (result.success === false) throw new Error(result.reason)
         return `Sang: "${result.value}"`
       },
-    },
-  )
+    })
+  }
 
   return tools
 }

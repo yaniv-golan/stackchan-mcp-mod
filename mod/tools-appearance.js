@@ -2,6 +2,7 @@
  * Appearance tools for stackchan-mcp-mod: the head-ring LEDs (robot.lighting.*), the face
  * (robot.face.*) and on-screen speech balloons (robot.ui.*) as MCP tools.
  */
+import { noteScreen } from 'robot-state'
 import Timer from 'timer'
 const BYTE_MIN = 0
 const BYTE_MAX = 255
@@ -244,6 +245,7 @@ function balloonTools(robot) {
         }
         clearHideTimer()
         robot.ui.showBalloon(text)
+        noteScreen(`balloon "${text.slice(0, 24)}"`)
         if (seconds !== undefined) {
           hideTimer = Timer.set(() => {
             hideTimer = undefined
@@ -264,6 +266,7 @@ function balloonTools(robot) {
       handler: () => {
         clearHideTimer()
         robot.ui.hideBalloon()
+        noteScreen('face')
         return 'Balloon hidden.'
       },
     },

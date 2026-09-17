@@ -1,4 +1,6 @@
 import Net from 'net'
+import { describeBalloonFont } from 'font-probe'
+import { describeState } from 'robot-state'
 import Time from 'time'
 import Timer from 'timer'
 
@@ -33,6 +35,10 @@ export function systemTools(robot, info) {
         lines.push(`LED groups: ${ledNames.length ? ledNames.join(', ') : 'none'}`)
         lines.push(`Microphone: ${robot.audio?.microphone ? 'available' : 'not available'}`)
         if (info.policy) lines.push(info.policy.describe())
+        // What the robot is doing right now: gaze and torque persist across calls, and a caller that
+        // arrived mid-session has no other way to find out.
+        lines.push(`State: ${describeState()}`)
+        lines.push(describeBalloonFont())
         lines.push(
           'Limits: a response body much over 28 KB cannot be sent by this device (and taking it down is the failure mode), so photos are size-budgeted and recordings are returned downsampled or as a loudness summary.',
         )
