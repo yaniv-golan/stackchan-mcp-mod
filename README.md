@@ -269,6 +269,18 @@ Or, from a local clone:
 /plugin install stackchan-robot@stackchan-robot-marketplace
 ```
 
+**The plugin installs the skill, not the robot.** The tools themselves come from the MOD on the device, which is
+registered separately — the skill describes tools you will not have until you do:
+
+```sh
+claude mcp add --scope user --transport http stackchan http://<robot-ip>:8080/mcp --header "Authorization: Bearer <token>"
+```
+
+That step is not folded into the plugin because there is nothing correct to put in it. A plugin manifest is a
+static file shared by everyone who installs it, while the address is whatever DHCP handed *your* robot and the
+token is yours alone. Manifests do support `${VAR}` expansion, but the first run of a fresh install would have
+both unset, and what happens then is not specified.
+
 To use it without the plugin machinery, copy the skill folder straight in:
 
 ```sh
