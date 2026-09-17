@@ -175,7 +175,9 @@ def checks() -> list[Check]:
             tier="read",
             tool="get_recent_events",
             args={"limit": 64},
-            expect=(r"highest seq|No events recorded",),
+            # Three shapes of answer: a populated buffer, an empty one on a fresh boot, and the
+            # capitalisation differs between them. Case-insensitive rather than guessing which.
+            expect=(r"(?i)highest seq|event buffer is empty",),
         ),
         Check(
             name="head pose is readable",

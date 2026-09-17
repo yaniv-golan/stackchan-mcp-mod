@@ -1,7 +1,7 @@
 import Net from 'net'
 import { onContextCreated as onDefaultContextCreated } from 'app-default-behavior/on-context-created'
 import { createCapturePolicy } from 'capture-policy'
-import { createSmileFace, getEmotionIntensity, setEmotionIntensity } from 'face-smile'
+import { createSmileFace, describeEmotionIntensity, setEmotionIntensity } from 'face-smile'
 import { EmotionNames, emotionFromName } from 'face-state'
 import { probeBalloonFont } from 'font-probe'
 import { createIndicators } from 'indicators'
@@ -63,17 +63,16 @@ function emotionTools(robot) {
         const name = typeof args.emotion === 'string' ? args.emotion.toUpperCase() : ''
         const emotion = emotionFromName(name)
         if (emotion === undefined) throw new Error(`emotion must be one of ${EmotionNames.join(', ')}`)
-        let intensity = getEmotionIntensity()
         if (args.intensity !== undefined) {
           if (typeof args.intensity !== 'number' || !Number.isFinite(args.intensity)) {
             throw new Error('intensity must be a number')
           }
           // Set the weight before the emotion so the face never paints the old emotion at the new
           // intensity for a frame.
-          intensity = setEmotionIntensity(args.intensity)
+          setEmotionIntensity(args.intensity)
         }
         robot.face.setEmotion(emotion)
-        return `Robot emotion changed to: ${name} (intensity ${intensity.toFixed(2)})`
+        return `Robot emotion changed to: ${name} (intensity: ${describeEmotionIntensity()})`
       },
     },
   ]

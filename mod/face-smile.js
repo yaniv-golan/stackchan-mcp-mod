@@ -50,6 +50,14 @@ const EYEBROW_RADIUS_Y = 4
 
 const FULL_TURN = 2 * Math.PI
 const MIN_STROKE = 3
+// How far the centre of a line-shaped mouth bows, in pixels. Constant on purpose: deriving it from
+// the mouth's open height made a smile sag deeper as the robot spoke, which read as wrong even
+// though the lip sync was working.
+const MOUTH_BOW = 15
+// Above this openness a line-shaped mouth stops being a line and becomes a filled lens - an open
+// mouth that keeps the emotion's curvature in its top and bottom lip, which is what an open smile
+// actually looks like.
+const OPEN_MOUTH_THRESHOLD = 0.18
 
 // Intensity is ours: FaceState.emotion is a bare enum with no magnitude, so "mildly doubtful" and
 // "furious" would otherwise look identical. Three buckets, because every extra bucket multiplies the
@@ -75,33 +83,22 @@ function quantizeIntensity(value) {
 }
 
 let intensityStep = quantizeIntensity(DEFAULT_INTENSITY)
-// Parts register a rebuild callback here in onCreate. Intensity is not part of FaceState, so a change
-// to it produces no onFaceState call and the parts have to be told directly.
-let intensityListeners = null
-
-function registerIntensityListener(listener) {
-  if (!intensityListeners) intensityListeners = []
-  intensityListeners.push(listener)
-}
 
 /**
- * Sets how strongly the current emotion is expressed, 0..1. Returns the quantized value actually
- * applied, so a tool can report what happened rather than what was asked for.
+ * Sets how strongly the current emotion is expressed, 0..1. Returns the quantized value applied.
+ *
+ * It only stores the value: the parts read it in their next onFaceState, which the breath and blink
+ * motions trigger continuously, so a change appears within a frame or two.
+ *
+ * An earlier version kept a list of callbacks holding Shape references and invoked them here, to
+ * repaint immediately. That is a dangling-reference waiting to happen: the host swaps the face out
+ * from under this MOD - its own petting reaction does exactly that - and a stored Shape then points
+ * at a destroyed Piu object. Reaching into one from outside a Piu callback is a fault rather than a
+ * catchable exception, which on this device means a reboot and a screen someone has to walk over and
+ * revive. A frame of latency is a good trade for holding no references at all.
  */
 export function setEmotionIntensity(value) {
-  const step = quantizeIntensity(value)
-  if (step !== intensityStep) {
-    intensityStep = step
-    if (intensityListeners) {
-      for (let i = 0; i < intensityListeners.length; i++) {
-        try {
-          intensityListeners[i]()
-        } catch (error) {
-          trace(`[face-smile] intensity refresh failed: ${errorMessage(error)}\n`)
-        }
-      }
-    }
-  }
+  intensityStep = quantizeIntensity(value)
   return intensityStep / INTENSITY_BUCKETS
 }
 
@@ -110,8 +107,34 @@ export function getEmotionIntensity() {
   return intensityStep / INTENSITY_BUCKETS
 }
 
-/** Emotions whose mouth is a line rather than a solid shape; the rest are filled. */
-function isStrokedMouth(emotion) {
+/**
+ * The applied intensity as a word. Reporting the number instead reads like a bug: ask for 0.7 and
+ * the quantized answer is 0.5, which looks as though the argument was ignored rather than bucketed.
+ */
+export function describeEmotionIntensity() {
+  if (intensityStep <= 0) return 'subtle'
+  if (intensityStep >= INTENSITY_BUCKETS) return 'strong'
+  return 'normal'
+}
+
+/** How much a line-shaped mouth bows, and which way. Positive curves down, into a smile. */
+function mouthBow(emotion) {
+  switch (emotion) {
+    case Emotion.HAPPY:
+      return 1
+    case Emotion.SAD:
+      return -1
+    case Emotion.ANGRY:
+      return -0.9
+    case Emotion.DOUBTFUL:
+      return 0.5
+    default:
+      return 0
+  }
+}
+
+/** Emotions drawn as a line while the mouth is closed; the rest are always filled. */
+function isLineMouth(emotion) {
   return (
     emotion === Emotion.HAPPY ||
     emotion === Emotion.SAD ||
@@ -119,6 +142,12 @@ function isStrokedMouth(emotion) {
     emotion === Emotion.DOUBTFUL ||
     emotion === Emotion.COLD
   )
+}
+
+/** Whether this state is drawn as a filled shape. Pure, so the cache can stay outlines-only. */
+function isFilledMouth(emotion, openStep) {
+  if (!isLineMouth(emotion)) return true
+  return unitFromStep(openStep) > OPEN_MOUTH_THRESHOLD
 }
 
 /**
@@ -131,36 +160,28 @@ function buildMouthPath(emotion, open, weight) {
   const w = MOUTH_MIN_WIDTH + (MOUTH_MAX_WIDTH - MOUTH_MIN_WIDTH) * (1 - open)
   const left = MOUTH_CX - w / 2
   const right = MOUTH_CX + w / 2
-  const top = MOUTH_CY - h / 2
-  const bottom = MOUTH_CY + h / 2
   const path = new Outline.CanvasPath()
-  const bend = 0.5 + 0.5 * weight
+  // 0.3 at subtle, 1.0 at strong. A narrower range than this is invisible on a 200 px face: the
+  // first attempt moved ANGRY's mouth by 2.6 px between the extremes and nobody could see it.
+  const bend = 0.3 + 0.7 * weight
 
-  switch (emotion) {
-    case Emotion.HAPPY:
-      // Corners level, centre pulled down: a smile that deepens with intensity.
-      path.moveTo(left, top)
-      path.quadraticCurveTo(MOUTH_CX, bottom + h * bend, right, top)
-      break
-    case Emotion.SAD:
-      path.moveTo(left, bottom)
-      path.quadraticCurveTo(MOUTH_CX, top - h * bend, right, bottom)
-      break
-    case Emotion.ANGRY:
-      // Corners below the centre: a pressed, tense line rather than a frown.
-      path.moveTo(left, MOUTH_CY + h * 0.35 * bend)
-      path.quadraticCurveTo(MOUTH_CX, MOUTH_CY - h * 0.15 * bend, right, MOUTH_CY + h * 0.35 * bend)
-      break
-    case Emotion.DOUBTFUL:
-      // A smirk: one corner up, the other down.
-      path.moveTo(left, MOUTH_CY + h * 0.35 * bend)
-      path.quadraticCurveTo(MOUTH_CX - w * 0.25, MOUTH_CY + h * 0.6 * bend, MOUTH_CX, MOUTH_CY)
-      path.quadraticCurveTo(MOUTH_CX + w * 0.25, MOUTH_CY - h * 0.6 * bend, right, MOUTH_CY - h * 0.35 * bend)
-      break
-    case Emotion.COLD: {
+  if (isLineMouth(emotion)) {
+    const bow = MOUTH_BOW * mouthBow(emotion) * bend
+    if (isFilledMouth(emotion, quantizeUnit(open))) {
+      // Open: a lens between two lips. The top lip carries the emotion's curve, the bottom one the
+      // same curve pushed down by however far the mouth is open, so the shape opens without
+      // straightening or sagging.
+      const lip = MOUTH_CY - h * 0.15
+      path.moveTo(left, lip)
+      path.quadraticCurveTo(MOUTH_CX, lip + bow * 2, right, lip)
+      path.quadraticCurveTo(MOUTH_CX, lip + bow * 2 + h * 1.6, left, lip)
+      path.closePath()
+      return path
+    }
+    if (emotion === Emotion.COLD) {
       // A shiver: a small wave across the mouth's width.
       const segments = 4
-      const amplitude = Math.max(2, h * 0.3 * bend)
+      const amplitude = Math.max(2, MOUTH_BOW * 0.35 * bend)
       path.moveTo(left, MOUTH_CY)
       for (let i = 1; i <= segments; i++) {
         const x = left + (w * i) / segments
@@ -168,8 +189,22 @@ function buildMouthPath(emotion, open, weight) {
         const controlY = MOUTH_CY + (i % 2 === 0 ? amplitude : -amplitude)
         path.quadraticCurveTo(controlX, controlY, x, MOUTH_CY)
       }
-      break
+      return path
     }
+    if (emotion === Emotion.DOUBTFUL) {
+      // A smirk: one corner up, the other down.
+      path.moveTo(left, MOUTH_CY + bow * 0.6)
+      path.quadraticCurveTo(MOUTH_CX - w * 0.25, MOUTH_CY + bow, MOUTH_CX, MOUTH_CY)
+      path.quadraticCurveTo(MOUTH_CX + w * 0.25, MOUTH_CY - bow, right, MOUTH_CY - bow * 0.6)
+      return path
+    }
+    // HAPPY, SAD and ANGRY closed: one arc, bowing by a constant amount.
+    path.moveTo(left, MOUTH_CY - bow * 0.5)
+    path.quadraticCurveTo(MOUTH_CX, MOUTH_CY + bow * 1.5, right, MOUTH_CY - bow * 0.5)
+    return path
+  }
+
+  switch (emotion) {
     case Emotion.SLEEPY:
       // Small and relaxed, barely open however much the lip sync asks for.
       path.ellipse(MOUTH_CX, MOUTH_CY, Math.max(6, w * 0.18), Math.max(2, h * 0.22), 0, 0, FULL_TURN)
@@ -188,7 +223,7 @@ function buildMouthPath(emotion, open, weight) {
       break
     default:
       // NEUTRAL, and anything a future firmware adds: the stock bar.
-      path.rect(left, top, w, h)
+      path.rect(left, MOUTH_CY - h / 2, w, h)
       break
   }
   return path
@@ -205,14 +240,9 @@ function getMouthOutline(emotion, openStep, weightStep) {
   const open = unitFromStep(openStep)
   const weight = weightStep / INTENSITY_BUCKETS
   const path = buildMouthPath(emotion, open, weight)
-  let outline
-  if (isStrokedMouth(emotion)) {
-    const h = MOUTH_MIN_HEIGHT + (MOUTH_MAX_HEIGHT - MOUTH_MIN_HEIGHT) * open
-    const thickness = Math.max(MIN_STROKE, Math.round(h / 4))
-    outline = Outline.stroke(path, thickness)
-  } else {
-    outline = Outline.fill(path)
-  }
+  const outline = isFilledMouth(emotion, openStep)
+    ? Outline.fill(path)
+    : Outline.stroke(path, Math.max(MIN_STROKE, Math.round(3 + 4 * (weightStep / INTENSITY_BUCKETS))))
   return rememberCachedValue(mouthOutlineCache, key, outline, MOUTH_CACHE_LIMIT)
 }
 
@@ -267,12 +297,14 @@ function getEyebrowOutline(side, emotion, weightStep) {
   if (cached) return cached
 
   const weight = weightStep / INTENSITY_BUCKETS
-  const scale = 0.4 + 0.6 * weight
+  const scale = 0.25 + 0.75 * weight
   const cx = side === 'left' ? EYE_LEFT_CX : EYE_RIGHT_CX
   const cy = EYEBROW_CY + eyebrowLift(emotion) * scale
-  const rotation = (Math.PI / 9) * eyebrowTilt(emotion, side) * scale
+  const rotation = (Math.PI / 7) * eyebrowTilt(emotion, side) * scale
   const path = new Outline.CanvasPath()
-  path.ellipse(cx, cy, EYEBROW_RADIUS_X, EYEBROW_RADIUS_Y, rotation, 0, FULL_TURN)
+  // A strong feeling also thickens the brow: angle alone reads as a tilt, weight reads as a scowl.
+  const radiusY = EYEBROW_RADIUS_Y * (0.8 + 0.5 * weight)
+  path.ellipse(cx, cy, EYEBROW_RADIUS_X, radiusY, rotation, 0, FULL_TURN)
   const outline = Outline.fill(path)
   return rememberCachedValue(eyebrowOutlineCache, key, outline, EYEBROW_CACHE_LIMIT)
 }
@@ -317,9 +349,6 @@ const VectorMouth = Shape.template(() => ({
 
     onCreate(shape) {
       try {
-        // Rebuild at the openness the lip sync last gave us, not at zero: intensity can change
-        // mid-sentence and the mouth must not snap shut.
-        registerIntensityListener(() => this.#update(shape, this.#emotion, this.#openStep, true))
         this.#update(shape, Emotion.NEUTRAL, quantizeUnit(0), true)
       } catch (error) {
         trace(`[face-smile] mouth onCreate failed: ${errorMessage(error)}\n`)
@@ -343,12 +372,12 @@ const VectorMouth = Shape.template(() => ({
       this.#openStep = openStep
       this.#weightStep = intensityStep
       const outline = getMouthOutline(emotion, openStep, intensityStep)
-      if (isStrokedMouth(emotion)) {
-        shape.fillOutline = undefined
-        shape.strokeOutline = outline
-      } else {
+      if (isFilledMouth(emotion, openStep)) {
         shape.strokeOutline = undefined
         shape.fillOutline = outline
+      } else {
+        shape.fillOutline = undefined
+        shape.strokeOutline = outline
       }
     }
   },
@@ -367,7 +396,6 @@ const Eyebrow = Shape.template((data) => ({
 
     onCreate(shape) {
       try {
-        registerIntensityListener(() => this.#update(shape, this.#emotion, true))
         this.#update(shape, Emotion.NEUTRAL, true)
       } catch (error) {
         trace(`[face-smile] eyebrow onCreate failed: ${errorMessage(error)}\n`)

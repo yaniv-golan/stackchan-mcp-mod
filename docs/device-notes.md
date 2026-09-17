@@ -633,6 +633,11 @@ the next flash, and further pulses can then bring it back, so no reset recipe is
 - A **software restart never** restores the display (see the table above).
 - **Pulsing EN** from pyserial works *more often* than esptool's own post-flash reset, and a second pulse sometimes
   succeeds where the first failed — worth trying before anything else, and it can revive an already-black screen.
+- On this unit the **bottom reset button is strictly better than pulsing EN from the host**. Measured
+  2026-09-17 across four consecutive flashes: **every** flash left the panel blank, one or two EN
+  pulses recovered it sometimes, and the button recovered it every time. Plan on pressing it after
+  every install rather than hoping. Treat `scripts/reset.sh` as the
+  remote option for when nobody is near the robot, not the first thing to try when someone is.
 - A **power-button off/on always works**. When in doubt, do that.
 
 Practical rules:
@@ -661,14 +666,59 @@ Everything except drawing is healthy. What was checked while it was broken, with
 | Recovery | The **bottom reset button** restored it, and the face came back working |
 | Reproduction attempt | The same capture tier, run once on a freshly reset robot: **display unaffected**. So that sequence alone is not sufficient |
 
-**The cause is unestablished, and it recurs.** What ran in the minutes before it was noticed: the whole `--capture`
-tier of `scripts/selftest.py` — `take_photo`, `listen`, `get_recorded_audio` and `record_and_play` back to back,
-each of which draws and then removes an on-screen prompt — followed by a rules-runner routine (emotion, LEDs,
-speech). The isolation table above clears the camera and audio *individually*; three captures in a row, each
-painting and unpainting a prompt, is a sequence this robot had not run before. Running it again on a
-freshly reset robot did not reproduce the failure, so if capture is involved at all it needs something else as
-well — elapsed uptime, accumulated memory pressure, or the concurrent balloon and rules activity. Stated here as a
-suspect, not a diagnosis.
+**The cause is unestablished, and it recurs.** The best candidate is **phantom petting**: with the USB cable
+plugged directly into a laptop sitting beside it, this robot's head touch strip fires continuously on its own
+(see "The head touch strip fires on its own next to a laptop", below), and every phantom stroke makes the
+firmware run its petting reaction — which swaps the face, moves the head and interrupts speech. That is the host
+repeatedly replacing the displayed face out from under a MOD's own, which is a far better explanation for a panel
+that stops painting than anything a MOD does deliberately.
+
+The capture tier was the earlier suspect, because a run of `camera_take_photo`, `mic_listen`, `mic_get_audio` and
+`mic_record_and_play` preceded the first episode and each draws and removes an on-screen prompt. That is now
+unlikely: the same tier on a freshly reset robot did not reproduce it, and 30 balloon show/hide cycles and 32
+emotion changes in isolation did not either. Both of those tests ran while phantom touches were streaming in,
+which is the variable nobody controlled for at the time.
+
+### The head touch strip fires on its own next to a laptop
+
+**Measured 2026-09-17.** With the USB cable plugged directly into a MacBook standing next to the robot, the head
+touch strip generated **64 events in 56 seconds** with nobody touching it — `press` and `release` alternating
+between `position=100` and `position=-100`, the two ends of the strip, which is noise rather than a finger. The
+same robot produced **zero events in 60 seconds** with the cable unplugged, and **zero in 30 seconds** with the
+cable plugged back in but the robot moved away from the laptop. So the trigger is proximity and the shared ground,
+not the cable itself: a laptop's chassis floats, and on a two-prong charger the supply's filter capacitor leaves it
+at a fraction of mains voltage, which couples onto the robot's ground and the strip reads it as touch.
+
+Why it matters beyond a stray event in the log: each phantom stroke runs the firmware's **petting reaction**, which
+draws a heart, moves the head and interrupts whatever the robot was doing. Symptoms this produced before the cause
+was found: speech stopping mid-sentence and resuming seconds later, a `say_message` call timing out at 60 s, a
+"weird face with a heart" appearing unbidden, and the head moving with no motion command sent. If this robot
+appears possessed, read the touch-panel events first.
+
+### Attaching a serial logger resets the robot, repeatedly
+
+`serlog.py` sets `dtr`/`rts` false before `open()`, which is meant to avoid the reset a plain
+`serial.Serial(port)` causes. It is not enough on this target: each `open()` still resets the chip, and
+the logger's reconnect loop reopens the port whenever the USB device drops - so a long capture produces
+a series of resets rather than a log of one failure. Observed 2026-09-17: `=== serial opened 16:06:38`
+in the capture, and the robot's uptime reset to 20 s in the same second.
+
+The consequence for diagnosis is the important part:
+
+- **A reset uptime does not imply an uncaught exception.** A hardware reset zeroes uptime and leaves no
+  trace at all, so an abort and an electrical reset look identical from the network. Before blaming code
+  for a reboot, account for anything that touched the serial port, and for the USB connection itself -
+  the same capture showed the device disconnecting and reconnecting several times a minute.
+- A capture is only trustworthy if nothing reopens the port during it. There is no known way to follow
+  this device's log across a reboot from the host side.
+
+### The lit-but-empty panel happens both with and without a reset
+
+The failure where the panel stays backlit and paints nothing has now been seen in both circumstances:
+with uptime running unbroken through it (2026-09-17 morning, above), and immediately after resets
+(2026-09-17 afternoon). So "backlit and empty" does not by itself distinguish a failed warm-reset
+display init from whatever the no-reset case is. The backlight tells you it is not the PMIC case; it
+does not tell you which of the other two you have.
 
 Practical rules:
 

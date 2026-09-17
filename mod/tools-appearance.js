@@ -2,6 +2,7 @@
  * Appearance tools for stackchan-mcp-mod: the head-ring LEDs (robot.lighting.*), the face
  * (robot.face.*) and on-screen speech balloons (robot.ui.*) as MCP tools.
  */
+import { hideBalloon, showBalloon } from 'balloon'
 import { noteScreen } from 'robot-state'
 import Timer from 'timer'
 const BYTE_MIN = 0
@@ -14,6 +15,7 @@ const LED_DURATION_MIN_MS = 0
 const LED_DURATION_MAX_MS = 60000
 const BLINK_DURATION_MIN_MS = 50
 const BLINK_DURATION_MAX_MS = 5000
+const BALLOON_SIZES = ['small', 'medium', 'large']
 const OPEN_MIN = 0
 const OPEN_MAX = 1
 
@@ -229,6 +231,12 @@ function balloonTools(robot) {
             type: 'number',
             description: 'Hide the balloon automatically after this many seconds, 1..60 (default: leave it up)',
           },
+          size: {
+            type: 'string',
+            enum: [...BALLOON_SIZES],
+            description:
+              'Text size (default medium). small is the host default, about 2 mm tall on this panel and hard to read across a room; medium and large are legible. A robot without the larger fonts falls back to small.',
+          },
         },
         required: ['text'],
       },
@@ -243,20 +251,23 @@ function balloonTools(robot) {
           }
           seconds = clamp(args.seconds, 1, 60)
         }
+        let size = 'medium'
+        if (args.size !== undefined) {
+          if (!BALLOON_SIZES.includes(args.size)) throw new Error(`size must be one of ${BALLOON_SIZES.join(', ')}`)
+          size = args.size
+        }
         clearHideTimer()
-        robot.ui.showBalloon(text)
+        const font = showBalloon(robot, text, size)
         noteScreen(`balloon "${text.slice(0, 24)}"`)
         if (seconds !== undefined) {
           hideTimer = Timer.set(() => {
             hideTimer = undefined
-            try {
-              robot.ui.hideBalloon()
-            } catch (error) {
-              trace(`[mcp-mod] hide balloon failed: ${error}\n`)
-            }
+            hideBalloon(robot)
+            noteScreen('face')
           }, seconds * 1000)
         }
-        return `Showing "${text}"${seconds === undefined ? '' : ` for ${seconds}s`}.`
+        const rendered = font ? `at ${size} size` : 'at the default small size'
+        return `Showing "${text}" ${rendered}${seconds === undefined ? '' : ` for ${seconds}s`}.`
       },
     },
     {
@@ -265,7 +276,7 @@ function balloonTools(robot) {
       inputSchema: { type: 'object', properties: {} },
       handler: () => {
         clearHideTimer()
-        robot.ui.hideBalloon()
+        hideBalloon(robot)
         noteScreen('face')
         return 'Balloon hidden.'
       },

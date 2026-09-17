@@ -21,6 +21,7 @@
       "./indicators",
       "./robot-state",
       "./font-probe",
+      "./balloon",
       "./tools-renamed"
     ]
   }

@@ -12,18 +12,26 @@
 # button until the robot powers off, then press it again. That always works. With a black screen you
 # cannot tell whether the long press powered it off, so the sequence that works is long, long, short.
 #
-# This script cannot see the screen. It reports what it sent, not whether the display came back.
+# This script cannot see the screen. It reports what it sent, not whether the display came back - so
+# with more than one pulse, WATCH THE ROBOT and interrupt with Ctrl-C when the face returns. Every
+# pulse is a reboot: a later pulse will happily reset a robot whose display had just come up. The gap
+# between pulses is long enough to see the face appear and stop.
 set -euo pipefail
 PULSES=${1:-2}
+GAP_SECONDS=${STACKCHAN_PULSE_GAP:-6}
 PORT=${2:-${STACKCHAN_PORT:?set STACKCHAN_PORT or pass the serial port}}
 
-uv run --with pyserial python - "$PORT" "$PULSES" <<'PY'
+if [ "$PULSES" -gt 1 ]; then
+  echo "[reset] $PULSES pulses, ${GAP_SECONDS}s apart. Each one is a reboot - watch the screen and press Ctrl-C when the face returns"
+fi
+
+uv run --with pyserial python - "$PORT" "$PULSES" "$GAP_SECONDS" <<'PY'
 import sys
 import time
 
 import serial
 
-port, pulses = sys.argv[1], int(sys.argv[2])
+port, pulses, gap = sys.argv[1], int(sys.argv[2]), float(sys.argv[3])
 connection = serial.Serial()
 connection.port = port
 connection.baudrate = 115200
@@ -40,7 +48,8 @@ try:
         time.sleep(0.3)
         connection.rts = False
         print(f"[reset] pulse {attempt} of {pulses} sent", flush=True)
-        time.sleep(2.5)
+        if attempt < pulses:
+            time.sleep(gap)
 finally:
     connection.close()
 PY

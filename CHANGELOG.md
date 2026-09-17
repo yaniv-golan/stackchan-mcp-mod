@@ -64,6 +64,10 @@ event rules runner — raises the event wait ceiling, and closes a protocol conf
 
 ### Documented
 
+- The head touch strip fires on its own when the USB cable runs to a laptop beside the robot: 64 events in 56
+  seconds with nobody touching it, zero once moved away. Each phantom stroke runs the firmware's petting reaction,
+  which draws a heart, moves the head and interrupts speech - so a robot that seems possessed is worth checking
+  against its touch-panel events before anything else. See `docs/device-notes.md`.
 - The display can stop rendering with no reset at all: the panel stays backlit and empty while every tool keeps
   answering and the uptime runs on unbroken. Only a hardware reset clears it, and the cause is unestablished. The
   backlight distinguishes it from the known dead-panel case, and a blank screen is therefore not evidence of a
