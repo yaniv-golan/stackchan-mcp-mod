@@ -67,6 +67,14 @@ starting point of the public record.
   event-following loop the Python scripts share. Neither handles the bearer token.
 - `scripts/check.sh` also checks Python syntax and loads the example rules.
 
+### Documented
+
+- The display can stop rendering with no reset at all: the panel stays backlit and empty while every tool keeps
+  answering and the uptime runs on unbroken. Only a hardware reset clears it, and the cause is unestablished. The
+  backlight distinguishes it from the known dead-panel case, and a blank screen is therefore not evidence of a
+  crash — read the uptime first. `scripts/selftest.py` warns before running its capture tier for this reason.
+  See `docs/device-notes.md`.
+
 ### Known issues
 
 These are limitations of the robot firmware and hardware, not of this MOD; they are documented here because they

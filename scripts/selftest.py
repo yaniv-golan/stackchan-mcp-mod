@@ -21,6 +21,11 @@ Tiers, because the checks are not equally quiet. `read` asks the robot questions
 camera and microphone. Only `read` runs by default. Whatever is asked for, the robot's own capture policy
 still decides whether the camera and microphone answer at all - that gate lives in flash, not here.
 
+The capture tier needs someone looking at the robot. On this hardware the display has stopped rendering -
+backlit, nothing painted, every tool still answering - after a run of capture calls, and only a hardware
+reset brings it back. The cause is unestablished (docs/device-notes.md has what was ruled out), and no
+check here can see it, because a screen that draws nothing returns success to everything asked of it.
+
 `restart_robot` is never run, by any flag: on this hardware a software restart leaves the screen dead
 until someone power-cycles the robot by hand. It is listed as excluded so the coverage check stays honest.
 
@@ -461,6 +466,14 @@ def main() -> int:
 
     robot.require_host()
     wanted = {"read"} | set(TIERS if arguments.all else (arguments.tier or []))
+
+    if "capture" in wanted:
+        # Nothing in this file can observe the screen, so the only safeguard is telling whoever ran it.
+        print(
+            "warning: the capture tier has preceded the display stopping rendering on this hardware, which "
+            "only a hardware reset clears. Have someone watching the robot.",
+            file=sys.stderr,
+        )
 
     served = served_tools()
     if served is None:

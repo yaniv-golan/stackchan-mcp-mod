@@ -119,6 +119,10 @@ These are settled; do not re-litigate them without new evidence on hardware:
 - The CoreS3 has no A/B/C buttons, and its virtual ones are compiled out of the platform build.
 - `System.restart()` leaves the display dead until a manual power-cycle.
 - Display initialization after any warm reset is unreliable; this is not caused by MOD code.
+- The display can also stop rendering with no reset at all: backlit, nothing painted, every tool still answering.
+  Check the uptime before assuming a crash — it stays continuous through this, so there is no exception to find.
+  Only a hardware reset clears it, and the cause is unestablished; do not run the self-test's capture tier without
+  someone watching the screen.
 - Recordings are about 30 dB quiet; the cause is unestablished (the analog preamp accounts for at most 4.5 dB of
   it), and a MOD cannot reach the ADC either way.
 - Connections that stall before their headers arrive cannot be timed out from a MOD: the HTTP layer does not yield

@@ -130,7 +130,7 @@ secret ever being visible. Ask the person for a route rather than searching thei
 | Symptom | What it means | What to do |
 |---|---|---|
 | Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down | Wait ~10s for the listener to restart; if it does not, the person must reset the robot |
-| Screen blank, tools still answer | Display init failed after a warm reset; common and not your fault | Tell the person; only a power-button cycle reliably fixes it |
+| Screen blank, tools still answer | Either display init failed after a warm reset, or the display stopped rendering mid-session; neither is your fault | Ask whether the screen is dark or lit-but-empty, and call `get_robot_info`: continuous uptime means nothing crashed. A dark panel needs a power-button cycle, a lit one the bottom reset button. No tool can fix either |
 | A tool reports the camera or mic is busy | Another capture is in flight | Wait and retry once; do not hammer it |
 | `sing` fails with "does not support singing" | Wrong TTS engine configured | Expected; use `say_message` |
 | Head did not move but the call succeeded | Torque released too early, or something is blocking it | Retry with `hold: true` and ask the person to look |

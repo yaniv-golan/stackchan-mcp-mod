@@ -203,10 +203,13 @@ actions-per-minute ceiling.
 
 ## Troubleshooting
 
-**The screen is blank but the robot answers MCP calls.** Display initialization after a warm reset is unreliable on
-this firmware, and a software restart never restores it. Try an EN reset pulse (`scripts/install.sh` sends two after
-flashing); if the screen stays dark, power-cycle by hand — hold the power button until the robot powers off, then
-press it again. Everything except the display keeps working meanwhile.
+**The screen is blank but the robot answers MCP calls.** Two different failures, and the backlight tells them
+apart. If the panel is **dark**, display initialization failed after a warm reset: try an EN reset pulse
+(`scripts/install.sh` sends two after flashing), and if it stays dark, power-cycle by hand — hold the power button
+until the robot powers off, then press it again. If the panel is **backlit but empty**, the display has stopped
+rendering while the app runs on; the bottom reset button clears it. In both cases read the uptime from
+`get_robot_info` before looking for a crash: continuous uptime means nothing restarted, so there is no reboot to
+explain. Everything except the display keeps working meanwhile. See `docs/device-notes.md`.
 
 **`esptool` cannot connect** (`No serial data received`). The app can wedge the USB peripheral. Start the flash and
 press the bottom reset button while esptool retries.

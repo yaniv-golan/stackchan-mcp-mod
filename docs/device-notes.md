@@ -643,6 +643,41 @@ Practical rules:
 - The MOD's `restart_robot` requires `accept_display_blank: true` and says so in its description: it causes a blank
   screen rather than recovering one.
 
+## ⚠ The display can stop rendering with no reset at all (2026-09-17)
+
+**Symptom: the panel is backlit and completely empty.** No face, no startup splash residue, no speech balloon —
+but the screen is visibly lit. This is a *different* failure from the PMIC one above, where the backlight is off
+too and nothing shows even under a torch. Check the backlight first; it decides which of the two you have.
+
+Everything except drawing is healthy. What was checked while it was broken, with the user watching the screen:
+
+| Check | Result |
+|---|---|
+| Did it reboot? | **No.** `get_robot_info` uptime ran continuously across the episode — 3489 s, then 3943 s eight minutes later |
+| PMIC rails | Every AXP2101 register byte-identical to the healthy baseline (`0x90 = 0xbf`, same voltages, same status bits) |
+| Is the app alive? | MCP answers every call, the head touch strip records new events (sequence numbers advanced with the user's taps), the head-ring LEDs light on command |
+| Draw something over it | `show_message` returned success; no balloon appeared |
+| A face colour collision — white face on a white background | **Excluded.** Setting `secondary` to black, `primary` to red and the emotion to HAPPY changed nothing on screen |
+| Recovery | The **bottom reset button** restored it, and the face came back working |
+| Reproduction attempt | The same capture tier, run once on a freshly reset robot: **display unaffected**. So that sequence alone is not sufficient |
+
+**The cause is unestablished, and it recurs.** What ran in the minutes before it was noticed: the whole `--capture`
+tier of `scripts/selftest.py` — `take_photo`, `listen`, `get_recorded_audio` and `record_and_play` back to back,
+each of which draws and then removes an on-screen prompt — followed by a rules-runner routine (emotion, LEDs,
+speech). The isolation table above clears the camera and audio *individually*; three captures in a row, each
+painting and unpainting a prompt, is a sequence this robot had not run before. Running it again on a
+freshly reset robot did not reproduce the failure, so if capture is involved at all it needs something else as
+well — elapsed uptime, accumulated memory pressure, or the concurrent balloon and rules activity. Stated here as a
+suspect, not a diagnosis.
+
+Practical rules:
+
+- **A blank screen is not evidence of a crash.** Read the uptime first. Continuous uptime means the app never
+  restarted, so there is no reboot to hunt for in MOD code — an uncaught exception would have reset the device and
+  zeroed it.
+- No tool can bring the panel back. A hardware reset (bottom button) or a power cycle is the only route.
+- Do not run the self-test's capture tier without someone looking at the screen.
+
 ## Earlier display episode (2026-09-16) — same symptom, same cause
 
 **Resolved:** a long power-button press (full power off) followed by a short press to power on brought the display
