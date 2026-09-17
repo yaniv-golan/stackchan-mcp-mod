@@ -4,6 +4,11 @@ import Timer from 'timer'
 import Touch from 'touch'
 
 const RING_CAPACITY = 64
+// A long wait costs nothing in latency - the call returns the moment an event arrives - and a caller
+// watching for activity makes far fewer round trips. 45 s stays inside a typical MCP client's own
+// request timeout; going much higher risks the client abandoning a call while the robot still holds
+// the connection. Callers wanting a shorter wait just pass a smaller timeout_ms.
+const WAIT_TIMEOUT_MAX_MS = 45000
 const VALID_KINDS = ['button', 'touch', 'touch-panel', 'imu']
 const BUTTON_NAMES = ['a', 'b', 'c', 'power']
 const VIRTUAL_BUTTON_NAMES = ['a', 'b', 'c']
@@ -274,7 +279,8 @@ export function createEvents(robot) {
           kind: { type: 'string', enum: VALID_KINDS, description: 'Only resolve for an event of this kind' },
           timeout_ms: {
             type: 'integer',
-            description: 'Max time to wait in milliseconds (default 5000, clamped 100-30000)',
+            description:
+              'Max time to wait in milliseconds (default 5000, clamped 100-45000). Waiting longer is cheap: the call returns as soon as an event arrives, so a long wait mainly avoids repeated empty polls. Prefer one long wait over several short ones.',
           },
         },
       },
@@ -283,7 +289,7 @@ export function createEvents(robot) {
         if (kind !== undefined && !VALID_KINDS.includes(kind)) {
           throw new Error(`kind must be one of ${VALID_KINDS.join(', ')}`)
         }
-        const timeoutMs = normalizeInteger(args.timeout_ms, 'timeout_ms', 5000, 100, 30000)
+        const timeoutMs = normalizeInteger(args.timeout_ms, 'timeout_ms', 5000, 100, WAIT_TIMEOUT_MAX_MS)
 
         return new Promise((resolve) => {
           const waiter = { kind, timer: undefined, resolve: undefined }

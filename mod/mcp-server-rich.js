@@ -7,6 +7,7 @@
  * - tools may declare a JSON Schema `inputSchema` directly (enums, ranges) instead of the flat `parameters` list
  * - a throwing handler becomes an `isError` tool result instead of a JSON-RPC "Parse error"
  * - notifications get HTTP 202 with no body, `ping` is supported, unknown tools return JSON-RPC -32602
+ * - the MCP-Protocol-Version header is validated, answering 400 for a version this server does not implement
  * - parse and envelope errors answer with HTTP 400, so a client with no usable id fails fast
  * - connection-level hardening the unauthenticated path needs: body size cap, no chunked encoding, a
  *   receive timeout, a concurrent-connection cap, and draining bodies nobody reads so an aborted
@@ -24,6 +25,9 @@ import Timer from 'timer'
 // The single-POST transport with a 405 on GET is the Streamable HTTP shape, introduced in 2025-03-26;
 // declaring 2024-11-05 (as the upstream server does) names a revision that has no such transport.
 const PROTOCOL_VERSION = '2025-06-18'
+// Versions whose Streamable HTTP shape this server implements. The spec requires answering 400 to an
+// MCP-Protocol-Version header naming anything else, rather than silently carrying on.
+const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
 // Stands in for the base64 payload while the small JSON envelope is built as a string.
 const BINARY_PLACEHOLDER = '@@stackchan-base64@@'
 const LISTENER_RESTART_ATTEMPTS = 5
@@ -216,6 +220,17 @@ export class MCPServer {
         if (origin) {
           this.#drainBody(request)
           await connection.respondWith(this.#json(403, { error: 'Forbidden' }))
+          return
+        }
+        const clientVersion = this.#header(request, 'mcp-protocol-version')
+        if (clientVersion !== undefined && !SUPPORTED_PROTOCOL_VERSIONS.includes(String(clientVersion))) {
+          this.#drainBody(request)
+          await connection.respondWith(
+            this.#json(400, {
+              error: 'Unsupported MCP-Protocol-Version',
+              supported: SUPPORTED_PROTOCOL_VERSIONS,
+            }),
+          )
           return
         }
         const auth = authorizeMCPRequest(authorization, this.#token)

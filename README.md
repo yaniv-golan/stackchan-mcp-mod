@@ -131,6 +131,27 @@ Register it with Claude Code:
 claude mcp add --scope user --transport http stackchan http://<robot-ip>:8080/mcp --header "Authorization: Bearer <token>"
 ```
 
+## Watching for events
+
+The robot cannot push: there is no SSE on this firmware, and MCP's notification mechanism would need a
+stream the HTTP layer cannot produce. So watching means asking repeatedly — and doing that from inside a
+conversation costs a tool call and a turn for every empty answer.
+
+`scripts/watch-events.py` moves the waiting into a process instead. It blocks in `wait_for_event` (so
+latency is a round trip, not a poll interval), pulls the backlog by sequence number after each event so
+bursts and gaps are covered, and prints one line per event:
+
+```sh
+STACKCHAN_HOST=192.168.1.20 scripts/watch-events.py
+2026-09-17T07:30:01 watching from seq=41
+2026-09-17T07:30:12 touch-panel gesture=forwardSwipe position=-50 intensity=3 seq=42
+2026-09-17T07:31:44 unreachable: robot not answering
+```
+
+It also prints state changes, because anything watching only for event lines cannot otherwise tell a
+quiet room from a dead script. The bearer token is never handled by it — `scripts/mcp.sh` fetches it
+from the OS keychain per call.
+
 ## Troubleshooting
 
 **The screen is blank but the robot answers MCP calls.** Display initialization after a warm reset is unreliable on

@@ -102,6 +102,29 @@ touches with coordinates. Two ways to use them:
 The IMU only reports recognized motions (shake, fallen over) — not raw orientation. The head strip reports
 gestures, not positions. Screen touches are only reported for the face area.
 
+## Watching for activity over time
+
+The robot cannot call you: there is no push channel, no subscription, and `GET /mcp` deliberately returns 405. So
+watching means asking repeatedly, and the way to do that cheaply is one long wait at a time:
+
+- Call `wait_for_event` with a **long** `timeout_ms` (up to 45 s). It returns the instant something happens, so a
+  long wait costs nothing in responsiveness — it only avoids a stream of empty polls. A timeout is a normal
+  outcome, not an error; call it again.
+- Between waits, `get_recent_events` with `since_seq` catches anything that landed in the gap. The robot keeps the
+  last 64 events, so nothing is lost even if you are away for a while — only your *reporting* lags.
+- Do not poll `get_recent_events` in a tight loop. It answers instantly, which makes it tempting, and it is pure
+  waste next to a blocking wait.
+- **If you are watching for more than a few minutes, get out of the conversation entirely.** With the repository
+  to hand, `STACKCHAN_HOST=<ip> scripts/watch-events.py` prints one line per event and nothing while idle, so it
+  can run under a background monitor: empty waits then cost no tokens and no turns, and only real events reach you.
+  It also prints a line when the robot stops answering, so silence genuinely means "nothing happened".
+
+**Never go looking for the robot's credentials.** If you find yourself wanting the bearer token — to run `curl` in
+a shell, say — stop: reading it out of a client configuration file is indistinguishable from credential theft, and
+a sensible sandbox will block it. You do not need it. The MCP tools already carry it, and this project's
+`scripts/mcp.sh` fetches it from the OS keychain at call time, so a shell poller can use that script without the
+secret ever being visible. Ask the person for a route rather than searching their files for one.
+
 ## What can go wrong, and what to do
 
 | Symptom | What it means | What to do |

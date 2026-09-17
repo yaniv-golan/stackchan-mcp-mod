@@ -42,7 +42,7 @@ working because the build passed or a tool call returned ok.
 | `mod/indicators.js` | LED and chirp shown while the camera or microphone is in use |
 | `mod/face-smile.js` | Custom face: a real smile for HAPPY, and the only route to screen touches |
 | `mod/png.js`, `mod/base64.js` | Encoders written for this device's memory limits |
-| `scripts/` | Build, install, check, and a raw MCP client for poking at the robot |
+| `scripts/` | Build, install, check, configure, a raw MCP client, and the event watcher |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
 | `docs/architecture.md` | How the pieces fit and what happens at boot |
 | `docs/device-notes.md` | The empirical record: measurements, firmware bugs, dead ends |
@@ -59,6 +59,27 @@ STACKCHAN_HOST=<robot-ip> make tools               # list what the robot now ser
 Adding a tool means: write it in the right `tools-*.js` (or a new module), register the module in
 `mod/manifest.json`, and add the factory to the list in `mod/mod.js`. Tool descriptions are read by a language
 model, so state units, ranges, defaults and costs in them.
+
+## Where a capability belongs: MCP tool or script?
+
+Two surfaces reach the same robot, and the split is deliberate.
+
+**MCP tools are the agent interface.** Anything an assistant does in the normal course of working with
+the robot belongs here: they carry schemas and descriptions a model reads, and — the part that matters —
+a client can permission them individually. `SECURITY.md` tells people to mark the capture tools
+always-ask; that control exists *only* for MCP tools.
+
+**Scripts are operator tooling**: build, flash, configure, diagnose, and stream. Things that are
+inherently long-running, batch, or setup, and that should be a deliberate act rather than an incidental
+one.
+
+So: do not add a script that duplicates a tool. A `photo.sh` would route the camera through "may run
+Bash", which is granted far more casually than a camera permission, and the injection defence the
+security policy describes would quietly stop working. `scripts/watch-events.py` earns its place because
+streaming is impossible over this transport, not because it is more convenient.
+
+If multi-step choreography is wanted, prefer one script that performs one named routine over a general
+robot-control CLI: a single reviewable action beats an arbitrary surface.
 
 ## Conventions
 

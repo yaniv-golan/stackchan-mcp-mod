@@ -46,6 +46,16 @@ starting point of the public record.
 - **`docs/device-notes.md`**, the bring-up log: measured device limits, firmware bugs found, and approaches that
   did not work.
 
+### Added after the initial release
+
+- `wait_for_event` accepts waits up to 45 s (was 30 s). A long wait costs nothing in latency — the call returns as
+  soon as an event arrives — so this mainly removes empty round trips.
+- `scripts/watch-events.py` streams events as one line each, for use under a background monitor instead of polling
+  from inside a conversation.
+- The `MCP-Protocol-Version` header is validated, answering 400 for a version this server does not implement, as
+  the specification requires.
+- `get_input_capabilities` reports screen touch from boot rather than only after the first touch.
+
 ### Known issues
 
 These are limitations of the robot firmware and hardware, not of this MOD; they are documented here because they
