@@ -181,7 +181,8 @@ def checks() -> list[Check]:
             tier="read",
             tool="wait_for_event",
             args={"timeout_ms": 300},
-            expect=(r"No event within 300 ms|^(button|touch|touch-panel|imu)",),
+            # Either outcome is correct: a quiet window times out, a touched one returns the event.
+            expect=(r"No event within 300 ms|Event received: seq=\d+ kind=\w",),
         ),
         Check(
             name="an unknown tool is an -32602 error, not a crash",

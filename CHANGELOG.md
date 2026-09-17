@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The self-test's event-wait check accepted only a timeout, so it failed whenever the head strip was touched
+  during its 300 ms window — reporting a healthy robot as broken. Both outcomes are correct.
+
 ## [0.2.0] - 2026-09-17
 
 Adds the operator scripts — a self-test that asserts physical consequences, a redacted diagnostics bundle, and an
