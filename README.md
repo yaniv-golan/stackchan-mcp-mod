@@ -204,9 +204,11 @@ actions-per-minute ceiling.
 ## Troubleshooting
 
 **The screen is blank but the robot answers MCP calls.** Two different failures, and the backlight tells them
-apart. If the panel is **dark**, display initialization failed after a warm reset: try an EN reset pulse
-(`scripts/install.sh` sends two after flashing), and if it stays dark, power-cycle by hand — hold the power button
-until the robot powers off, then press it again. If the panel is **backlit but empty**, the display has stopped
+apart. If the panel is **dark**, display initialization failed after a warm reset: pulse EN with
+`STACKCHAN_PORT=<port> scripts/reset.sh 4` (`scripts/install.sh` sends two of those after flashing), and if it
+stays dark, power-cycle by hand — hold the power button until the robot powers off, then press it again. A pulse
+that works twice can fail on the next attempt and a later one can succeed where an earlier one did not, so more
+pulses is a reasonable response to a dark screen. If the panel is **backlit but empty**, the display has stopped
 rendering while the app runs on; the bottom reset button clears it. In both cases read the uptime from
 `get_robot_info` before looking for a crash: continuous uptime means nothing restarted, so there is no reboot to
 explain. Everything except the display keeps working meanwhile. See `docs/device-notes.md`.

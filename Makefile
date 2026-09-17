@@ -6,7 +6,7 @@
 #   STACKCHAN_HOST  robot IP or ip:port                      (tools, health, demo)
 
 .DEFAULT_GOAL := help
-.PHONY: help check build install tools health selftest diagnose demo clean
+.PHONY: help check build install reset tools health selftest diagnose demo clean
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[1m%-10s\033[0m %s\n", $$1, $$2}'
@@ -19,6 +19,9 @@ build: ## Build mod.xsa (needs MODDABLE and STACKCHAN)
 
 install: build ## Build, write to the robot and reset it (needs STACKCHAN_PORT)
 	@scripts/install.sh
+
+reset: ## Pulse EN over USB, the first thing to try for a black screen (needs STACKCHAN_PORT)
+	@scripts/reset.sh
 
 tools: ## List the tools the robot currently serves (needs STACKCHAN_HOST)
 	@scripts/mcp.sh '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \

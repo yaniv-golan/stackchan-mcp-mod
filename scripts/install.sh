@@ -26,22 +26,4 @@ uvx --from esptool esptool --chip esp32s3 --port "$PORT" --baud "${STACKCHAN_BAU
 # If esptool cannot enter download mode ("No serial data received"), press the bottom reset button
 # while it retries.
 echo "[install] resetting with EN pulses (display init after a warm reset is unreliable)"
-uv run --with pyserial python - "$PORT" <<'PY'
-import sys, time, serial
-port = sys.argv[1]
-s = serial.Serial()
-s.port = port
-s.baudrate = 115200
-s.timeout = 0.5
-s.dtr = False          # CoreS3 boots from a DTR/RTS sequence over native USB-JTAG; keep DTR unasserted
-s.rts = False
-s.open()
-for _ in range(2):
-    s.dtr = False
-    s.rts = True       # assert EN
-    time.sleep(0.3)
-    s.rts = False
-    time.sleep(2.0)
-s.close()
-print("[install] reset pulses sent; if the screen is black, power-cycle by hand")
-PY
+"$ROOT/scripts/reset.sh" "${STACKCHAN_PULSES:-2}" "$PORT"

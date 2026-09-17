@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/reset.sh` pulses EN over USB with a settable pulse count, which is the first thing to try when the
+  screen is black. The pulse used to exist only inside `scripts/install.sh`, so resetting a robot meant reflashing
+  it; `install.sh` now calls this script rather than carrying its own copy.
+
 ### Fixed
 
 - The self-test's event-wait check accepted only a timeout, so it failed whenever the head strip was touched

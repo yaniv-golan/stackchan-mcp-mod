@@ -42,7 +42,7 @@ working because the build passed or a tool call returned ok.
 | `mod/indicators.js` | LED and chirp shown while the camera or microphone is in use |
 | `mod/face-smile.js` | Custom face: a real smile for HAPPY, and the only route to screen touches |
 | `mod/png.js`, `mod/base64.js` | Encoders written for this device's memory limits |
-| `scripts/` | Build, install, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector, the rules runner and the version tool |
+| `scripts/` | Build, install, reset, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector, the rules runner and the version tool |
 | `scripts/stackchan_client.py`, `scripts/stackchan_events.py` | Shared by the Python scripts: one MCP client and one event-following loop. Neither holds the token; `scripts/mcp.sh` fetches it per call |
 | `examples/` | A rules file for `scripts/react.py`, and captured events to replay it against offline |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
