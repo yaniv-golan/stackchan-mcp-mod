@@ -17,7 +17,7 @@ import { qrTools } from 'tools-qr'
 import { renamedTools } from 'tools-renamed'
 import { systemTools } from 'tools-system'
 
-const VERSION = '0.2.0'
+const VERSION = '0.3.0'
 const MCP_PORT = 8080
 const DRAWER_KEY = 'mcp-server:endpoint'
 

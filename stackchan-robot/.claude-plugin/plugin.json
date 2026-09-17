@@ -1,7 +1,7 @@
 {
   "name": "stackchan-robot",
   "displayName": "Stack-chan Robot",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
   "author": {
     "name": "Yaniv Golan",

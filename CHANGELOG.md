@@ -4,7 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-17
+
+Makes the screen worth looking at. Every emotion has a face of its own, the mouth opens while speaking instead of
+curling deeper, on-screen text is legible across a room, and the panel can show a photograph or a QR code and find
+its way back to the face afterwards. The four capture tools are renamed so that one permission rule covers all of
+them.
 
 ### Breaking
 
@@ -19,17 +24,72 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A face for every emotion.** The mouth is a Piu `Shape` with cached outlines rather than nine coloured
+  rectangles, and each emotion draws its own path: smile and frown arcs, a pressed tense line for `ANGRY`, an
+  asymmetric smirk for `DOUBTFUL`, a shiver wave for `COLD`, a small relaxed oval for `SLEEPY`, a wide pant for
+  `HOT`. Eyebrows are new, one `Shape` per side, tilted and lifted per emotion and deliberately asymmetric for
+  `DOUBTFUL`, because one raised brow is what makes a face look sceptical. Three of the eight emotions -
+  `DOUBTFUL`, `COLD` and `HOT` - previously rendered exactly like `NEUTRAL`, and none of them moved the mouth.
+- **The mouth opens rather than curling.** Above a threshold it becomes a filled lens: a top lip carrying the
+  emotion's curve and a bottom lip pushed down by however far the mouth is open. Openness and expression are
+  separate axes, so speaking no longer deepens a smile into a sag. All 12 lip-sync steps are kept; coarser
+  quantization stair-steps speech.
+- **`set_emotion` accepts an optional `intensity`**, quantized to three levels and held in the MOD, since the
+  firmware's `FaceState.emotion` is a bare enum with nowhere to put a magnitude. Intensity drives bend range,
+  mouth bow, stroke thickness and eyebrow weight together, and the result reports a word - subtle, normal,
+  strong - rather than a rounded float.
+- **`show_qr`** shows a QR code for an `http`/`https` URL of at most 300 characters, with the decoded host
+  printed beneath it so a person can read where a code goes before scanning it. A long host is truncated from the
+  **left**, because the registrable domain sits at the right end of a hostname and truncating the other way would
+  show a deceptive prefix while hiding the part that matters.
+- **`show_face`** puts the face back on the screen. `hide_message` cannot return from a photo or a QR code; the
+  screen owner is what knows how.
+- **`show_message` gains `size`** (`small` | `medium` | `large`, default `medium`). A boot-time probe resolves
+  the larger fonts on the MOD's own stack, where Piu's lazy font lookup can be caught, rather than from inside a
+  layout pass where the failure would reboot the device.
+- **`camera_take_photo` gains `show_on_screen`** (default false), which displays the capture on the robot's own
+  panel for about ten seconds. It blits the real RGB565 frame; where that is not possible it falls back to the
+  firmware's coarse colour mosaic and the tool result says which one happened, because 15 coloured rectangles are
+  not a photograph.
+- **`get_robot_info` reports gaze, torque and what is currently on the screen**, which an assistant arriving
+  mid-session cannot otherwise know.
 - `scripts/reset.sh` pulses EN over USB with a settable pulse count, which is the first thing to try when the
   screen is black. The pulse used to exist only inside `scripts/install.sh`, so resetting a robot meant reflashing
-  it; `install.sh` now calls this script rather than carrying its own copy.
+  it; `install.sh` now calls this script rather than carrying its own copy. Pulses are spaced 6 s apart, because
+  every pulse is a reboot and firing four in quick succession resets a robot whose display had just recovered.
+- `scripts/panel.py` serves a localhost-only page for picking expressions by hand: a button per emotion at each
+  intensity, message and speech fields, and a live state readout. It exists because comparing two expressions by
+  watching a timed sequence is miserable. The browser never sees the bearer token - the page posts to the local
+  server, which calls the robot through `scripts/mcp.sh` - and a fixed action allowlist keeps it from becoming a
+  general robot-control surface.
 - `scripts/selftest.py` gains a check per capture-tool stub, asserting each refuses and names its replacement, and
   a `tools/list` response-size guard: the encoded `tools/list` body is measured and the check fails above 24 KB,
   well below the size that has been observed to take the HTTP server down.
 
+### Changed
+
+- `mod/screen.js` is the single owner of the 320x240 panel: everything that replaces the face goes through it,
+  and its hide timer is not optional. Content with no route back leaves the robot expressionless until the next
+  tool call, with nobody in the room able to tell why.
+- `sing` registers only when the speech engine exposes `streamKoe`, instead of always registering and failing
+  when called.
+
 ### Fixed
 
 - The self-test's event-wait check accepted only a timeout, so it failed whenever the head strip was touched
-  during its 300 ms window — reporting a healthy robot as broken. Both outcomes are correct.
+  during its 300 ms window - reporting a healthy robot as broken. Both outcomes are correct.
+- `hide_message` reported the screen as showing the face whatever was actually on it, which became a lie as soon
+  as a balloon could sit over a photograph. It now reports what the screen owner knows.
+
+### Documented
+
+- The head touch strip fires on its own when the USB cable runs to a laptop beside the robot: 64 events in 56
+  seconds with nobody touching it, zero once moved away. Each phantom stroke runs the firmware's petting reaction,
+  which draws a heart, moves the head and interrupts speech - so a robot that seems possessed is worth checking
+  against its touch-panel events before anything else. See `docs/device-notes.md`.
+- Attaching a serial logger resets this device on every port open, so an uptime that starts from zero is not
+  evidence of an uncaught exception. The physical reset button recovers a blank display where EN pulses over USB
+  are unreliable. See `docs/device-notes.md`.
 
 ## [0.2.0] - 2026-09-17
 
@@ -55,11 +115,6 @@ event rules runner — raises the event wait ceiling, and closes a protocol conf
 - `scripts/version.py` reads and sets the one version this project declares in six files, and `scripts/check.sh`
   fails when they disagree.
 - `scripts/check.sh` also checks Python syntax and loads the example rules.
-- `scripts/panel.py` serves a localhost-only page for picking expressions by hand: a button per emotion at each
-  intensity, message and speech fields, and a live state readout. It exists because comparing two expressions by
-  watching a timed sequence is miserable. The browser never sees the bearer token - the page posts to the local
-  server, which calls the robot through `scripts/mcp.sh` - and a fixed action allowlist keeps it from becoming a
-  general robot-control surface.
 
 ### Fixed
 
@@ -69,10 +124,6 @@ event rules runner — raises the event wait ceiling, and closes a protocol conf
 
 ### Documented
 
-- The head touch strip fires on its own when the USB cable runs to a laptop beside the robot: 64 events in 56
-  seconds with nobody touching it, zero once moved away. Each phantom stroke runs the firmware's petting reaction,
-  which draws a heart, moves the head and interrupts speech - so a robot that seems possessed is worth checking
-  against its touch-panel events before anything else. See `docs/device-notes.md`.
 - The display can stop rendering with no reset at all: the panel stays backlit and empty while every tool keeps
   answering and the uptime runs on unbroken. Only a hardware reset clears it, and the cause is unestablished. The
   backlight distinguishes it from the known dead-panel case, and a blank screen is therefore not evidence of a
@@ -140,5 +191,6 @@ starting point of the public record.
 - **`docs/device-notes.md`**, the bring-up log: measured device limits, firmware bugs found, and approaches that
   did not work.
 
+[0.3.0]: https://github.com/yaniv-golan/stackchan-mcp-mod/releases/tag/v0.3.0
 [0.2.0]: https://github.com/yaniv-golan/stackchan-mcp-mod/releases/tag/v0.2.0
 [0.1.0]: https://github.com/yaniv-golan/stackchan-mcp-mod/releases/tag/v0.1.0
