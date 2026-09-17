@@ -14,6 +14,9 @@ echo "[check] shell syntax ok"
 python3 -m py_compile scripts/*.py
 echo "[check] python syntax ok"
 
+scripts/version.py --quiet
+echo "[check] version declarations agree"
+
 # The example rules are documentation that can be wrong. Loading them exercises the validator, and
 # replaying the captured events exercises the matcher - neither needs a robot.
 scripts/selftest.py --list >/dev/null

@@ -41,6 +41,43 @@ Tools are consumed by a language model, so descriptions carry real weight. State
 say what a tool costs — that `say_message` only returns after playback, that `take_photo` pauses the touch strip.
 Where the hardware behaves surprisingly, say so in the description rather than leaving it to be discovered.
 
+## Versioning and releases
+
+**One version covers the whole project.** The MOD, the operator skill, the Claude Code plugin and the marketplace
+ship together and are only ever tested together, so they carry the same number rather than three more numbers to
+keep true.
+
+That number is declared in six files. Read or change it with the script, never by hand — `scripts/check.sh` fails
+when the six disagree:
+
+```sh
+scripts/version.py            # print it
+scripts/version.py set 0.2.0  # rewrite all six
+```
+
+What the parts mean here, where the consumer of this software is usually a language model:
+
+| Bump | For |
+|---|---|
+| Patch | A fix that leaves every tool's contract alone |
+| Minor | A new tool, a new optional argument, or a description change that changes how a model would use a tool |
+| Major | A tool removed or renamed, an argument's meaning changed, a preference key changed — anything that breaks an existing caller or install |
+
+**Do not bump the version in a pull request.** Add your entry to `CHANGELOG.md` under `Unreleased` and leave the
+number alone; bumping it is a release step, and six files are six conflicts when two branches both do it.
+
+Cutting a release:
+
+```sh
+scripts/version.py set X.Y.Z
+# rename the CHANGELOG's Unreleased heading to "## [X.Y.Z] - <date>" and add its link at the bottom
+git commit -am "Release X.Y.Z"
+git tag vX.Y.Z && git push --follow-tags
+```
+
+Then flash a robot, because `get_robot_info` reports the version the device was **built** with. Between a bump and
+the next `scripts/install.sh` the source is legitimately ahead of the hardware; that is not drift.
+
 ## Pull requests
 
 - Say **what you ran on the device** and what it did. "Builds" is not enough.

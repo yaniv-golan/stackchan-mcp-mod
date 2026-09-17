@@ -42,7 +42,7 @@ working because the build passed or a tool call returned ok.
 | `mod/indicators.js` | LED and chirp shown while the camera or microphone is in use |
 | `mod/face-smile.js` | Custom face: a real smile for HAPPY, and the only route to screen touches |
 | `mod/png.js`, `mod/base64.js` | Encoders written for this device's memory limits |
-| `scripts/` | Build, install, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector and the rules runner |
+| `scripts/` | Build, install, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector, the rules runner and the version tool |
 | `scripts/stackchan_client.py`, `scripts/stackchan_events.py` | Shared by the Python scripts: one MCP client and one event-following loop. Neither holds the token; `scripts/mcp.sh` fetches it per call |
 | `examples/` | A rules file for `scripts/react.py`, and captured events to replay it against offline |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
@@ -105,7 +105,9 @@ would otherwise have to ask for". A `photo.sh` fails it.
 - Comments should explain *why*, especially where the code works around device behaviour. Several functions look
   over-careful until you know what they prevent — keep those explanations.
 - Record new hardware findings in `docs/device-notes.md` with the measurement, not just the conclusion.
-- Update `CHANGELOG.md` under `Unreleased`.
+- Update `CHANGELOG.md` under `Unreleased`, and leave the version number alone — bumping it is a release step,
+  and it is declared in six files. `scripts/version.py` reads and sets all six; `scripts/check.sh` fails when they
+  disagree. Never edit one by hand.
 - A behaviour worth keeping belongs in `scripts/selftest.py` as a check that asserts the consequence, not
   the status. Every tool the robot serves must be covered by one, or the suite's own coverage check fails.
 
