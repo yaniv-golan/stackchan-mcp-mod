@@ -14,7 +14,7 @@ import { motionTools } from 'tools-motion'
 import { powerTools } from 'tools-power'
 import { systemTools } from 'tools-system'
 
-const VERSION = '0.1.0'
+const VERSION = '0.2.0'
 const MCP_PORT = 8080
 const DRAWER_KEY = 'mcp-server:endpoint'
 

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {

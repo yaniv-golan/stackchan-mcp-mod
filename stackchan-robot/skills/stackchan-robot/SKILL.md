@@ -3,7 +3,7 @@ name: stackchan-robot
 description: Operate a Stack-chan desk robot through its MCP tools — take photos, listen to the room, speak, move the head, light the LEDs, show messages and react to touch. Use whenever a request involves what the robot should see, hear, say, show or do, when interpreting what the robot sensed, or when the robot stops responding and needs recovery. Covers safe operation of real hardware: what the device cannot do, which call can leave it needing a human, and how to report physical outcomes honestly.
 license: Apache-2.0
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 compatibility: Requires the stackchan-mcp-mod MOD installed on an M5StackChan CoreS3 and registered as an MCP server.
 ---
 
