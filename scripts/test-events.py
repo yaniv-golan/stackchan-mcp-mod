@@ -100,9 +100,63 @@ def test_events_arriving_during_a_blocking_action_are_still_delivered() -> None:
         check("stranded event 3 is delivered too", next(stream)["seq"], 3)
 
 
+def test_follow_recovers_when_the_robot_restarts_and_seq_resets() -> None:
+    print("follow: robot restart")
+    # The baseline sees 411643; 411644 arrives during the first wait, so priming does not consume it.
+    recorded = [411643]
+    announced: list[str] = []
+    waits = {"n": 0}
+
+    def responder(tool, args):
+        if tool == "get_recent_events":
+            return events_page(recorded, args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            waits["n"] += 1
+            if waits["n"] == 1:
+                recorded.append(411644)
+            return text("Event received: seq=? kind=imu ticks=1 motion=shake")
+        return None
+
+    with fake_robot(responder):
+        stream = events.follow(wait_ms=1000, retry_seconds=0, on_state=announced.append)
+        check("pre-restart event arrives", next(stream)["seq"], 411644)
+        recorded[:] = [1, 2]  # the robot reboots; seq restarts at 1
+        check("post-restart event arrives", next(stream)["seq"], 1)
+        check("and the one after it", next(stream)["seq"], 2)
+        check("the restart was announced", any("restarted" in line for line in announced), True)
+
+
+def test_an_idle_wait_is_not_mistaken_for_a_restart() -> None:
+    print("follow: idle waits")
+    recorded = [5]
+    announced: list[str] = []
+    waits = {"n": 0}
+
+    class Enough(Exception):
+        pass
+
+    def responder(tool, args):
+        if tool == "get_recent_events":
+            return events_page(recorded, args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            waits["n"] += 1
+            if waits["n"] > 5:
+                raise Enough
+            return text(f"No event within {args.get('timeout_ms')} ms.")
+        return None
+
+    with fake_robot(responder):
+        stream = events.follow(wait_ms=1000, retry_seconds=0, on_state=announced.append)
+        with contextlib.suppress(Enough):
+            next(stream)
+    check("no phantom restart across idle waits", [l for l in announced if "restarted" in l], [])
+
+
 def main() -> int:
     test_highest_seq_reads_every_message_the_mod_emits()
     test_events_arriving_during_a_blocking_action_are_still_delivered()
+    test_follow_recovers_when_the_robot_restarts_and_seq_resets()
+    test_an_idle_wait_is_not_mistaken_for_a_restart()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1

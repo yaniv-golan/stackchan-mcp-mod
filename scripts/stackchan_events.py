@@ -112,7 +112,24 @@ def follow(
         )
         if batch is None:
             continue
+
+        # The robot numbers events from 1 on every boot, so a restart leaves this cursor in the future and
+        # `seq > since_seq` matches nothing - forever. Without this the loop keeps running, keeps reporting
+        # the robot reachable, and delivers nothing again, which is exactly what a quiet room looks like.
+        # The reported highest seq is the tell and it is in every answer, which is why highest_seq has to
+        # read every form of it.
+        highest = highest_seq(batch)
+        if highest < sequence:
+            announce(f"robot restarted: event seq reset ({sequence} -> {highest})")
+            sequence = 0
+            batch = robot.text_of(
+                robot.call("get_recent_events", {"since_seq": sequence, "limit": BACKLOG_LIMIT}, timeout_s=call_timeout_s)
+            )
+            if batch is None:
+                continue
+            highest = highest_seq(batch)
+
         for event in parse(batch):
             sequence = max(sequence, event["seq"])
             yield event
-        sequence = max(sequence, highest_seq(batch))
+        sequence = max(sequence, highest)
