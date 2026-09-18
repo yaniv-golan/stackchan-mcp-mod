@@ -32,8 +32,18 @@ contains the factory Wi-Fi credentials, so treat the file as a secret.
 
 ## 2. Set the robot's preferences over BLE
 
-The robot needs Wi-Fi, a TTS engine and a token before it serves anything. `POST /mcp` rejects every request
-while `mcp.token` is unset.
+The robot needs Wi-Fi to be reachable and `mcp.token` to answer: `POST /mcp` rejects every request while the
+token is unset, and the server refuses to start at all with a token under 32 characters.
+
+**TTS is not a prerequisite** — the firmware defaults `tts.type` to `local`, so a robot with no speech
+configuration boots and serves every tool. `say_message` on a broken engine returns an ordinary MCP error,
+and `sing` is not even registered unless the active engine can sing. Configure speech because you want the
+robot to talk, not because the MCP server is waiting for it.
+
+> **But do not configure it halfway.** `tts.voice` and `tts.speed` defaults are engine-specific, and the
+> wrong pair for the chosen engine produces a firmware-level error that **reboots the robot** rather than
+> returning a tool error (`device-notes.md`). A MOD cannot catch that. So: leave TTS alone, or set `type`,
+> `voice`, `speed` and `volume` together. A partial configuration is worse than none.
 
 Generate a token and keep it out of your shell history and out of this repository:
 
@@ -48,11 +58,19 @@ Then write the preferences. **The order matters and is easy to get wrong:**
 3. Tap the gear on the three-second splash screen, and leave the Settings screen open.
 4. After the writes land, press reset again **without touching the screen**, so the MOD reloads.
 
+The minimum that gets a robot serving:
+
 ```sh
 uv run --with bleak scripts/set-prefs.py \
   wifi.ssid=YourNetwork wifi.password=@env:WIFI_PASSWORD \
-  tts.type=openai tts.token=@env:OPENAI_API_KEY tts.voice=alloy tts.speed=1 tts.volume=0.5 \
   mcp.token=@keychain:stackchan-mcp-token
+```
+
+And speech, if you want it — all four keys together, for the reason above:
+
+```sh
+uv run --with bleak scripts/set-prefs.py \
+  tts.type=openai tts.token=@env:OPENAI_API_KEY tts.voice=alloy tts.speed=1 tts.volume=0.5
 ```
 
 `@env:` reads from a `.env` beside the script or at the repository root; `@keychain:` reads from the macOS

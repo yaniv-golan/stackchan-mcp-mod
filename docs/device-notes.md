@@ -334,6 +334,11 @@ Run it in the background (`uv run --with pyserial python ~/stackchan-workspace/s
 - **Switching `tts.type` is not enough** — the platform's `voice`/`speed` defaults are engine-specific and break OpenAI
   (400 → firmware reboot). Always set `tts.voice` and `tts.speed` (and check `tts.volume`) with the engine.
 - Firmware errors in TTS reboot the robot instead of returning an MCP error — a hanging tool call means "check serial".
+  This is the *only* reason TTS configuration is worth care: it is **not** a prerequisite for serving. `tts.type`
+  defaults to `local` (`firmware/host/app/compose.ts:167`), so an unconfigured robot boots and serves every tool;
+  `say_message` on a broken engine returns a normal MCP error, and `sing` is not registered at all unless the engine
+  can sing. What is dangerous is a *partial* configuration, because the firmware aborts before the MOD's error path
+  is reached. An unknown `tts.type` is worse still: `compose.ts:175-185` throws at boot.
 - My own serial logger reset the robot once and ruined a test — never open the port with default DTR/RTS.
 - Secrets: MCP token in Keychain; OpenAI key in `.env` (user's preference over Keychain). Neither pasted into chat.
 - Never paste tokens into chat/notes (the XiaoZhi JWT was pasted once — reset it if the factory firmware is restored).
