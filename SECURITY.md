@@ -88,6 +88,11 @@ note. Two things change at once, independently:
 - **The reachability half changes shape.** A LAN-only port is protected partly by the network. Bridged, the bearer
   token is all that is left — and it lives in plaintext in client configuration.
 
+There is one remote route that does **not** break the first half: the Claude Desktop bridge runs its proxy
+on your own machine, so the robot stays LAN-only and never has a port open to the internet. See
+[README.md](README.md#using-it-from-a-cowork-cloud-session). It does not fix the second half - a bridged
+cloud session is still a different client with its own permission rules, or none.
+
 **If the robot may be reached by a client you did not configure, set `mcp.capture=off`.** The camera and
 microphone tools are then never registered, and no token, client or injected instruction can bring them back. Do
 not reach for `armed` here: arming is a ten-minute window on the whole robot, not a per-call confirmation, so once

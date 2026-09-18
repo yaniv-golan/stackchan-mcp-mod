@@ -150,6 +150,55 @@ The robot joins the new network on that boot. Its address changes, and nothing a
 work on this firmware. Find it by its MAC in the ARP table and re-run the `claude mcp add` above, because a client
 registered against the old address simply stops working.
 
+## Using it from a Cowork cloud session
+
+A cloud session cannot reach the robot directly. Anthropic's sandbox refuses private, internal and
+link-local addresses, and a remote MCP connector is dialled from Anthropic's infrastructure rather than
+from your machine, so it would need the robot to be publicly accessible - which
+[SECURITY.md](SECURITY.md) tells you not to do, and means it.
+
+**The Claude Desktop bridge is the route that does not require exposing anything.** Desktop proxies MCP
+servers from its own config into a cloud Cowork session, and the proxy process runs on *your* machine, so
+it reaches the robot over the LAN. The robot never has a port open to the internet. Verified end to end on
+2026-09-18: a cloud Cowork session called `get_robot_info` and got an answer from the robot on the LAN.
+
+In `claude_desktop_config.json`, using `mcp-remote` as a stdio-to-HTTP shim:
+
+```json
+{
+  "mcpServers": {
+    "stackchan": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@0.14.2", "http://<robot-ip>:8080/mcp", "--allow-http",
+               "--header", "Authorization: Bearer <token>"]
+    }
+  }
+}
+```
+
+Three things that cost time if you do not know them:
+
+- **`--allow-http` is required.** Without it `mcp-remote` exits immediately with "Non-HTTPS URLs are only
+  allowed for localhost", which reads exactly like the robot being unreachable.
+- **Pin the version forward, not back.** 0.0.5 to 0.1.15 carried a critical RCE (CVE-2025-6514); 0.1.16 is
+  merely the oldest fixed release, not a good choice today.
+- **A normal Claude Desktop chat does not see a bridged server.** It will report the tools missing, which
+  looks like a broken setup. The bridge feeds Cowork, not Desktop's own conversations. `~/Library/Logs/
+  Claude/main.log` settles it - look for `[LocalMcpServerManager] Connected to stackchan` and
+  `[localMcpBridge] announcing stackchan`.
+
+What it costs, and these are not small:
+
+- **Desktop must stay open.** Close it and the robot vanishes from the cloud session mid-conversation.
+- **Recovery is much slower than the outage.** After a robot reboot the bridge exhausts its retries and
+  marks the server failed; on 2026-09-18 the robot served normally for **17 minutes** before Desktop
+  retried. Nothing on the Cowork side can hurry it - only Desktop's own reconnect restores it. `Connection
+  closed` in that log means the robot is not answering, not that the proxy is broken.
+- **Your client's permission rules do not travel.** This is the part to read
+  [SECURITY.md](SECURITY.md#limiting-what-the-robot-can-do) about before you set it up: `permissions.ask`
+  belongs to one client, so a second client reaching the same robot has its own rules or none. If the robot
+  may be reached by a client you did not configure, set `mcp.capture=off`.
+
 ## Watching for events
 
 The robot cannot push: there is no SSE on this firmware, and MCP's notification mechanism would need a

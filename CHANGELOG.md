@@ -123,6 +123,13 @@ All notable changes to this project are documented here. The format follows
   once the owner swipes for their own reasons any token holder can capture until it lapses.
 - **A pre-existing LED bug**, in `docs/device-notes.md`: `indicators.js` blanks the whole ring after every
   capture, which erases the armed-capture indicator while `armed` is still true.
+- **How to reach the robot from a Cowork cloud session**, in the README: a cloud session cannot dial a LAN
+  address, and the Claude Desktop bridge is the one route that does not require exposing the robot, because
+  its proxy runs on your own machine. With the three things that cost time (`--allow-http`, pinning
+  `mcp-remote` forward rather than back, and that a normal Desktop chat cannot see a bridged server), and
+  what it costs: Desktop must stay open, and recovery after a robot reboot took 17 minutes with no way to
+  hurry it. Previously this existed only in gitignored working notes, so the published docs warned against
+  bridging without describing the safe route.
 - **How to install the plugin so the skill you are editing is the one that loads.**
 - **The MCP server can stop listening while the robot looks healthy.** The face draws, `ping` is clean, and port
   8080 refuses every connection - the inverse of the known display failure, and the refusal is what distinguishes
