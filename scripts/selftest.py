@@ -257,40 +257,6 @@ def checks() -> list[Check]:
             expect_error=True,
             expect=(r"emotion must be one of",),
         ),
-        # --- read: renamed-capture stubs (a stale permissions.ask rule must fail loudly) --------
-        # `take_photo`, `listen`, `get_recorded_audio` and `record_and_play` were renamed so the capture
-        # surface could be permissioned as one group (see SECURITY.md). The old names stay registered as
-        # refusing stubs precisely so a client still holding an old permissions rule gets a loud refusal
-        # naming the replacement, rather than the rule silently matching nothing. These need no hardware.
-        Check(
-            name="take_photo stub refuses and names its replacement",
-            tier="read",
-            tool="take_photo",
-            expect_error=True,
-            expect=(r"camera_take_photo",),
-        ),
-        Check(
-            name="listen stub refuses and names its replacement",
-            tier="read",
-            tool="listen",
-            expect_error=True,
-            expect=(r"mic_listen",),
-        ),
-        Check(
-            name="get_recorded_audio stub refuses and names its replacement",
-            tier="read",
-            tool="get_recorded_audio",
-            expect_error=True,
-            expect=(r"mic_get_audio",),
-        ),
-        Check(
-            name="record_and_play stub refuses and names its replacement",
-            tier="read",
-            tool="record_and_play",
-            expect_error=True,
-            expect=(r"mic_record_and_play",),
-        ),
-        # --- visual: the face and the LEDs -----------------------------------------------------
         Check(
             name="emotion changes",
             tier="visual",

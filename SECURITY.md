@@ -36,17 +36,10 @@ service to an AI assistant. Treat it accordingly.
   `mcp__<server>__` prefix needs **Claude Code 2.1.166 or later**; on an older version list the four capture tools
   and `restart_robot` out individually instead.
 
-  **Migration hazard if you are upgrading from an older MOD version.** The capture tools used to be named
-  `take_photo`, `listen`, `record_and_play` and `get_recorded_audio`. If you have those old names listed under
-  `permissions.ask` *and* also have a broad allow rule for this server (for example `mcp__stackchan__*`), then
-  after you upgrade both this MOD and Claude Code, the old rule stops matching anything — the tools are now called
-  `camera_take_photo`, `mic_listen`, `mic_record_and_play` and `mic_get_audio` — while the broad allow rule still
-  matches the new names. The practical effect: the camera and microphone fire with no prompt. Claude Code does
-  **not** warn you about this, because its check for stale permission rules exempts tool names that contain an
-  underscore, and every one of these names does. The old names stay registered as refusing stubs specifically so
-  that a stale `permissions.ask` rule still matches a real tool and fails loudly with a message naming the
-  replacement, rather than silently matching nothing — but the stub is a safety net, not the fix. The fix is to
-  update your `permissions.ask` rules to the block above.
+  The capture tools are `camera_take_photo`, `mic_listen`, `mic_record_and_play` and `mic_get_audio`. There are no
+  aliases and no other names: nothing else on this robot opens the camera or the microphone, so those four rules
+  plus `restart_robot` are the whole list.
+
 - **Captures are announced on the robot.** A photo lights the head LEDs and plays a short chirp; a recording lights
   them for its duration. Both work when the screen is blank, which matters because this hardware's display often
   is. There is deliberately no way to suppress the indicators through a tool.

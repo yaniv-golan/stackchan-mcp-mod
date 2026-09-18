@@ -14,7 +14,6 @@ import { micGainTools } from 'tools-mic-gain'
 import { motionTools } from 'tools-motion'
 import { powerTools } from 'tools-power'
 import { qrTools } from 'tools-qr'
-import { renamedTools } from 'tools-renamed'
 import { systemTools } from 'tools-system'
 
 const VERSION = '0.3.0'
@@ -132,9 +131,6 @@ export function onContextCreated(robot, option) {
     ...audioTools(robot, { policy, indicators }),
     ...micGainTools(),
     ...powerTools(),
-    // The pre-0.3.0 capture tool names, kept as refusing stubs so a stale permissions.ask rule
-    // still matches a real tool and says what to change instead of silently missing.
-    ...renamedTools(),
   ]
   const info = { name: 'stackchan-mcp-mod', version: VERSION, port: MCP_PORT, toolCount: 0, policy }
   tools.push(...systemTools(robot, info))

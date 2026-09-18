@@ -24,8 +24,7 @@
       "./balloon",
       "./screen",
       "./photo-view",
-      "./tools-qr",
-      "./tools-renamed"
+      "./tools-qr"
     ]
   }
 }
