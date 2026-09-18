@@ -15,6 +15,10 @@ Two things make that safe to leave running.
 vocabulary; there is no expression to evaluate and no way to reach a tool this file does not list. A typo
 is refused at load rather than silently never matching.
 
+**Two actions keep running after the rule ends.** `blink` flashes until something stops it - `period_ms`
+is how fast, not how long - and `gaze` tracks until `gaze_off`. A rule that starts either and does not
+stop it has left the robot that way for good. The shipped example turns its own alarm off; copy that.
+
 **The vocabulary leaves out capture on purpose.** No rule can take a photo or record audio. Those are the
 tools whose permission a person is asked for individually, and a rule file that ran them would turn a
 background process into a camera trigger nobody sees. The robot's own capture policy would still gate it -
@@ -79,32 +83,45 @@ def _rgb(spec: dict) -> dict:
 
 @dataclass
 class Action:
-    """One entry in the vocabulary: the tool it calls and how to build its arguments."""
+    """One entry in the vocabulary: the tool it calls, how to build its arguments, and which keys it reads.
+
+    `keys` exists so a step carrying anything else is refused: every builder reads its arguments with a
+    default, so a misspelling is otherwise silently replaced by that default and the rule does something
+    quietly different from what it says. Same check load_rules already applies to rule-level keys, one
+    level down, for the same reason.
+    """
 
     tool: str | None
     build: Callable[[dict], dict]
+    keys: tuple[str, ...] = ()
 
 
 # The whole vocabulary. Deliberately small, and deliberately without camera_take_photo, mic_listen,
 # mic_get_audio, mic_record_and_play, set_torque and restart_robot - see the module docstring.
 ACTIONS: dict[str, Action] = {
-    "emotion": Action("set_emotion", lambda s: {"emotion": _choice(s, "emotion", EMOTIONS)}),
-    "say": Action("say_message", lambda s: {"message": _text(s, "message")}),
+    "emotion": Action("set_emotion", lambda s: {"emotion": _choice(s, "emotion", EMOTIONS)}, ("emotion",)),
+    "say": Action("say_message", lambda s: {"message": _text(s, "message")}, ("message",)),
     "show": Action(
         "show_message",
         lambda s: {"text": _text(s, "text"), "seconds": _number(s, "seconds", 5, 1, 60)},
+        ("text", "seconds"),
     ),
-    "hide": Action("hide_message", lambda s: {}),
+    "hide": Action("hide_message", lambda s: {}, ()),
     "leds": Action(
         "set_leds",
         lambda s: {**_rgb(s), "duration_ms": int(_number(s, "duration_ms", 2000, 0, 60000))},
+        ("r", "g", "b", "duration_ms"),
     ),
+    # period_ms in a rules file, duration_ms to the tool: blink_leds' argument IS a period, and calling it
+    # duration_ms beside `leds`, where the same name means a lifetime, is how the shipped example came to
+    # start an alarm nothing ever stopped.
     "blink": Action(
         "blink_leds",
-        lambda s: {**_rgb(s), "duration_ms": int(_number(s, "duration_ms", 300, 50, 5000))},
+        lambda s: {**_rgb(s), "duration_ms": int(_number(s, "period_ms", 300, 50, 5000))},
+        ("r", "g", "b", "period_ms"),
     ),
-    "rainbow": Action("rainbow_leds", lambda s: {}),
-    "leds_off": Action("leds_off", lambda s: {}),
+    "rainbow": Action("rainbow_leds", lambda s: {}, ()),
+    "leds_off": Action("leds_off", lambda s: {}, ()),
     "look": Action(
         "set_head_pose",
         lambda s: {
@@ -112,21 +129,24 @@ ACTIONS: dict[str, Action] = {
             "pitch_degrees": _number(s, "pitch_degrees", 0, -90, 0),
             "duration_seconds": _number(s, "duration_seconds", 0.5, 0.1, 5),
         },
+        ("yaw_degrees", "pitch_degrees", "duration_seconds"),
     ),
     "gaze": Action(
         "look_at",
         lambda s: {axis: _number(s, axis, None, -5, 5) for axis in ("x", "y", "z")},
+        ("x", "y", "z"),
     ),
-    "gaze_off": Action("look_away", lambda s: {}),
+    "gaze_off": Action("look_away", lambda s: {}, ()),
     "tone": Action(
         "play_tone",
         lambda s: {
             "hz": _number(s, "hz", None, 100, 8000),
             "duration_ms": int(_number(s, "duration_ms", 200, 20, 3000)),
         },
+        ("hz", "duration_ms"),
     ),
     # Not a tool: a pause between actions, so a routine can let one finish being seen.
-    "wait": Action(None, lambda s: {"seconds": _number(s, "seconds", 1, 0, 5)}),
+    "wait": Action(None, lambda s: {"seconds": _number(s, "seconds", 1, 0, 5)}, ("seconds",)),
 }
 
 
@@ -211,8 +231,18 @@ def load_rules(path: str) -> list[Rule]:
                     f"{where} ({name}) uses action \"{action}\". "
                     f"The vocabulary is: {', '.join(sorted(ACTIONS))}"
                 )
+            spec = ACTIONS[action]
+            # `comment` is allowed everywhere: a rules file is documentation and annotating a step is the
+            # obvious thing to want. Everything else must be an argument the builder actually reads.
+            unknown_keys = [key for key in step if key not in ("action", "comment") and key not in spec.keys]
+            if unknown_keys:
+                allowed = ", ".join(spec.keys) if spec.keys else "no arguments"
+                raise SystemExit(
+                    f"{where} ({name}) action \"{action}\" has unknown key(s) "
+                    f"{', '.join(unknown_keys)}; it reads: {allowed}"
+                )
             try:
-                built.append((action, ACTIONS[action].build(step)))
+                built.append((action, spec.build(step)))
             except ValueError as error:
                 raise SystemExit(f"{where} ({name}) action \"{action}\": {error}") from error
 

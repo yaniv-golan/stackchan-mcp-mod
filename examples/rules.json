@@ -25,7 +25,7 @@
     },
     {
       "name": "ask for help when tipped over",
-      "comment": "Any of the fallen motions. A list means any of these values.",
+      "comment": "Any of the fallen motions. A list means any of these values. blink runs until something stops it - period_ms is how fast it flashes, not how long - so the rule turns the LEDs off itself.",
       "when": {
         "kind": "imu",
         "motion": ["fallenForward", "fallenBackward", "fallenLeft", "fallenRight", "upsideDown"]
@@ -33,7 +33,9 @@
       "then": [
         { "action": "emotion", "emotion": "SAD" },
         { "action": "show", "text": "Help?", "seconds": 20 },
-        { "action": "blink", "r": 60, "g": 0, "b": 0, "duration_ms": 400 }
+        { "action": "blink", "r": 60, "g": 0, "b": 0, "period_ms": 400 },
+        { "action": "wait", "seconds": 5 },
+        { "action": "leds_off" }
       ],
       "min_interval_seconds": 30
     },
