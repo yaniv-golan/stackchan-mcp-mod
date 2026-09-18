@@ -940,7 +940,25 @@ and 3 dB below speech.
 
 **Still missing, and worth taking when someone is at the robot:** a clap or shout anchor for the top of the range,
 more than one room, and a second speech figure. The margins above are thin enough that a single better
-measurement could move them.
+measurement could move them - and **one noisier room could invalidate the quiet/conversation line outright**.
+A daytime room with HVAC or traffic is easily more than 2.5 dB above a late-evening one, and would read
+"conversation level" empty. That is not a placement error; no threshold inside a 5.5 dB window escapes it.
+
+### The approach that would replace thresholding, and what would settle it
+
+Absolute RMS is near the limit of what one threshold can carry here. The per-200 ms slices look more robust:
+steady room noise is flat by nature, speech is bursty, and 13 slices across 2.5 s is enough to see the
+difference. Both samples above were flat - all zeros in A, and `0,1,0,0,0,0,1,1,0,0,1,0,0` in B on the old
+linear scale. Slice variance would degrade gracefully across rooms instead of depending on a 2.5 dB margin.
+
+**Crest factor is not a substitute for it, despite looking like the same information.** Room noise measured
+15.3 and 17.4 dB of crest here, and speech RMS sits 12-20 dB below its own peak - the ranges overlap, so
+peak-minus-RMS cannot separate "someone is talking" from "this room is noisy" on this hardware.
+
+**What would settle it:** one `mic_listen` over speech and one over a quiet room, both with the per-slice row,
+which is now dBFS. If the variance of the speech slices is clearly larger, the discriminator is worth building
+and the thresholds become a fallback. There is no speech slice data on record, so this is not implemented -
+guessing at it is what produced the inverted bands an earlier attempt shipped.
 
 **On-screen prompts:** `show_message` / `hide_message` drive `robot.ui.showBalloon/hideBalloon`, and the recording
 tools show "Listening..." while the mic is open, so the person knows when to speak. Verified on the device.

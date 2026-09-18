@@ -54,6 +54,16 @@ const MAX_DECIMATION_FACTOR = 8
 // placed at -45, which is 2.5 dB above the louder room sample and 3 dB below speech. That is thin, and it
 // is thin because the anchors are 5.5 dB apart - two samples of one room, no clap anchor, one speech
 // figure. Do not widen these without measuring again, and do not read them as precise.
+//
+// **2.5 dB does not survive a noisier room.** Those samples are a late-evening room with one person sitting
+// still. A daytime room with HVAC, a fan or a street outside is comfortably more than 2.5 dB above that, and
+// would read "conversation level" with nobody in it - the original bug, with a correct derivation. No
+// placement inside a 5.5 dB window avoids this; it is a limit of thresholding absolute RMS at all. See
+// docs/device-notes.md for the approach that would replace it.
+//
+// `silent` is deliberately below anything this microphone has been seen to produce. It means dead air - a
+// disconnected or failed capture path - not a quiet room. A quiet room is `quiet`, which is what an empty
+// room should read.
 const SILENT_DBFS = -54
 const QUIET_DBFS = -45
 const CONVERSATION_DBFS = -30
