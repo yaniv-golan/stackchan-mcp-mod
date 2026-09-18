@@ -288,6 +288,20 @@ def main() -> int:
         help="replay event lines from a file instead of the robot (implies no waiting)",
     )
     parser.add_argument(
+        "--for",
+        dest="run_for",
+        type=float,
+        metavar="SECONDS",
+        help="stop after this many seconds, so a live dry run has an end (default: run until interrupted)",
+    )
+    parser.add_argument(
+        "--wait-ms",
+        type=int,
+        default=events.DEFAULT_WAIT_MS,
+        metavar="MS",
+        help=f"how long each wait_for_event blocks (default {events.DEFAULT_WAIT_MS})",
+    )
+    parser.add_argument(
         "--max-actions-per-minute",
         type=int,
         default=DEFAULT_ACTIONS_PER_MINUTE,
@@ -304,7 +318,16 @@ def main() -> int:
     mode = "acting" if arguments.act else "dry run"
     report(f"{len(rules)} rule(s) loaded, {mode}" + (", replaying " + arguments.events_from if arguments.events_from else ""))
 
-    source = offline_events(arguments.events_from) if arguments.events_from else events.follow(on_state=report)
+    # The deadline is handed to follow() rather than checked around the loop below: that generator yields
+    # only events, so in a quiet room - the case --for exists for - control never comes back here.
+    deadline = time.time() + arguments.run_for if arguments.run_for else None
+    if deadline:
+        report(f"stopping after {arguments.run_for:.0f}s, checked between waits of {arguments.wait_ms} ms")
+    source = (
+        offline_events(arguments.events_from)
+        if arguments.events_from
+        else events.follow(wait_ms=arguments.wait_ms, on_state=report, deadline=deadline)
+    )
     recent: collections.deque[float] = collections.deque()
 
     for event in source:

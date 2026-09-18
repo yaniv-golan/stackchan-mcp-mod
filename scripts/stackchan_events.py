@@ -71,11 +71,16 @@ def follow(
     wait_ms: int = DEFAULT_WAIT_MS,
     retry_seconds: int = RETRY_SECONDS,
     on_state: Callable[[str], None] | None = None,
+    deadline: float | None = None,
 ) -> Iterator[dict]:
-    """Yields events as they happen, forever. Reports reachability through on_state.
+    """Yields events as they happen, until `deadline` (a time.time() value) if one is given.
 
     A consumer watching only for events cannot tell a quiet room from a dead script, so state changes are
     announced - once per transition, not once per attempt.
+
+    The deadline is checked here rather than by the consumer because this generator yields only events: in
+    a quiet room it loops internally and never hands control back, so a caller counting seconds between
+    yields is waiting for a physical event that may never come.
     """
     announce = on_state or (lambda message: None)
     call_timeout_s = wait_ms // 1000 + 15
@@ -92,6 +97,9 @@ def follow(
     refused = False
 
     while True:
+        if deadline is not None and time.time() >= deadline:
+            announce("deadline reached")
+            return
         response = robot.call("wait_for_event", {"timeout_ms": wait_ms}, timeout_s=call_timeout_s)
         if response is None:
             if reachable:

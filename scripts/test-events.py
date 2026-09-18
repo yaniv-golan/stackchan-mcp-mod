@@ -185,12 +185,31 @@ def test_a_refused_wait_is_not_reported_as_unreachable() -> None:
     check("the refusal is announced once", len([l for l in announced if "refused" in l]), 1)
 
 
+def test_follow_stops_at_its_deadline_in_a_silent_room() -> None:
+    print("follow: deadline")
+    import time as clock
+
+    def responder(tool, args):
+        if tool == "get_recent_events":
+            return events_page([], args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            return text(f"No event within {args.get('timeout_ms')} ms.")
+        return None
+
+    with fake_robot(responder):
+        started = clock.time()
+        drained = list(events.follow(wait_ms=10, retry_seconds=0, deadline=started + 0.3))
+    check("the generator ends", drained, [])
+    check("and it ended near its deadline", clock.time() - started < 5, True)
+
+
 def main() -> int:
     test_highest_seq_reads_every_message_the_mod_emits()
     test_events_arriving_during_a_blocking_action_are_still_delivered()
     test_follow_recovers_when_the_robot_restarts_and_seq_resets()
     test_an_idle_wait_is_not_mistaken_for_a_restart()
     test_a_refused_wait_is_not_reported_as_unreachable()
+    test_follow_stops_at_its_deadline_in_a_silent_room()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1

@@ -27,12 +27,16 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 import stackchan_client as robot
 import stackchan_events as events
 from stackchan_client import emit
 
 WAIT_MS = int(os.environ.get("STACKCHAN_WAIT_MS", str(events.DEFAULT_WAIT_MS)))
+# Seconds to watch for before stopping on its own; 0 means run until interrupted. A bounded run is
+# what makes this usable as a step in a procedure rather than something you have to remember to kill.
+RUN_FOR_S = float(os.environ.get("STACKCHAN_RUN_FOR", "0"))
 
 
 def line(event: dict) -> str:
@@ -44,7 +48,8 @@ def line(event: dict) -> str:
 
 def main() -> int:
     robot.require_host()
-    for event in events.follow(wait_ms=WAIT_MS, on_state=emit):
+    deadline = time.time() + RUN_FOR_S if RUN_FOR_S > 0 else None
+    for event in events.follow(wait_ms=WAIT_MS, on_state=emit, deadline=deadline):
         emit(line(event))
     return 0
 
