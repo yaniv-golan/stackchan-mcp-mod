@@ -75,8 +75,34 @@ def test_highest_seq_reads_every_message_the_mod_emits() -> None:
     )
 
 
+def test_events_arriving_during_a_blocking_action_are_still_delivered() -> None:
+    print("follow: backlog after a blocking action")
+    recorded: list[int] = []
+    waits = {"n": 0}
+
+    def responder(tool, args):
+        if tool == "get_recent_events":
+            return events_page(recorded, args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            waits["n"] += 1
+            if waits["n"] == 1:
+                recorded.append(1)
+                return text("Event received: seq=1 kind=imu ticks=1 motion=shake")
+            return text(f"No event within {args.get('timeout_ms')} ms.")
+        return None
+
+    with fake_robot(responder):
+        stream = events.follow(wait_ms=1000, retry_seconds=0)
+        check("first event arrives", next(stream)["seq"], 1)
+        # The consumer now blocks in say_message. Two events land. The room then goes quiet.
+        recorded.extend([2, 3])
+        check("stranded event 2 is delivered on the next timeout", next(stream)["seq"], 2)
+        check("stranded event 3 is delivered too", next(stream)["seq"], 3)
+
+
 def main() -> int:
     test_highest_seq_reads_every_message_the_mod_emits()
+    test_events_arriving_during_a_blocking_action_are_still_delivered()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1

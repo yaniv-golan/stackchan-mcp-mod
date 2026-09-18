@@ -101,10 +101,12 @@ def follow(
         if not reachable:
             announce("reachable again")
             reachable = True
-            # The buffer kept going while we were away; report what was missed.
-        elif "No event within" in waited:
-            continue  # a timeout is the normal quiet case
 
+        # The backlog is pulled on every pass, including after a timeout. `wait_for_event` resolves only
+        # for events recorded after the call starts, so anything that landed while the consumer was busy -
+        # running a say, a wait, or any slow action - is invisible to the next wait. Skipping the pull on a
+        # timeout left those events unread until some unrelated event happened to arrive, which in a quiet
+        # room is never. The pull answers instantly and costs one round trip per idle wait.
         batch = robot.text_of(
             robot.call("get_recent_events", {"since_seq": sequence, "limit": BACKLOG_LIMIT}, timeout_s=call_timeout_s)
         )
