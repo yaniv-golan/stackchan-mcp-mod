@@ -152,11 +152,45 @@ def test_an_idle_wait_is_not_mistaken_for_a_restart() -> None:
     check("no phantom restart across idle waits", [l for l in announced if "restarted" in l], [])
 
 
+def test_a_refused_wait_is_not_reported_as_unreachable() -> None:
+    print("follow: a refusal is not silence")
+    recorded = [1]
+    announced: list[str] = []
+    waits = {"n": 0}
+
+    class Enough(Exception):
+        pass
+
+    def responder(tool, args):
+        if tool == "get_recent_events":
+            return events_page(recorded, args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            waits["n"] += 1
+            if waits["n"] > 3:
+                raise Enough
+            # The event lands after the baseline has primed the cursor, so it can only reach the consumer
+            # through the backlog pull - which is the thing this test is about.
+            if waits["n"] == 1:
+                recorded.append(2)
+            return error("Error: 2 callers are already waiting for an event, which is this robot's limit.")
+        return None
+
+    delivered = []
+    with fake_robot(responder):
+        stream = events.follow(wait_ms=1000, retry_seconds=0, on_state=announced.append)
+        with contextlib.suppress(Enough):
+            delivered.append(next(stream)["seq"])
+    check("the backlog is still delivered while waits are refused", delivered, [2])
+    check("no false unreachable", [l for l in announced if "unreachable" in l], [])
+    check("the refusal is announced once", len([l for l in announced if "refused" in l]), 1)
+
+
 def main() -> int:
     test_highest_seq_reads_every_message_the_mod_emits()
     test_events_arriving_during_a_blocking_action_are_still_delivered()
     test_follow_recovers_when_the_robot_restarts_and_seq_resets()
     test_an_idle_wait_is_not_mistaken_for_a_restart()
+    test_a_refused_wait_is_not_reported_as_unreachable()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1

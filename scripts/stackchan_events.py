@@ -89,10 +89,11 @@ def follow(
         reachable = True
         sequence = highest_seq(baseline)
         announce(f"watching from seq={sequence}")
+    refused = False
 
     while True:
-        waited = robot.text_of(robot.call("wait_for_event", {"timeout_ms": wait_ms}, timeout_s=call_timeout_s))
-        if waited is None:
+        response = robot.call("wait_for_event", {"timeout_ms": wait_ms}, timeout_s=call_timeout_s)
+        if response is None:
             if reachable:
                 announce("unreachable: robot not answering")
                 reachable = False
@@ -101,6 +102,17 @@ def follow(
         if not reachable:
             announce("reachable again")
             reachable = True
+        # A refused wait is an answer, not silence. `text_of` returns None for both, so reading the wait
+        # through it made every tool-level refusal look like a robot that had stopped responding - the loop
+        # would announce "unreachable", skip the backlog and sleep, against a robot answering perfectly.
+        # The backlog pull below does not need the wait to have succeeded, so say so once and carry on.
+        if robot.is_error(response):
+            if not refused:
+                announce(f"waiting refused, polling instead: {robot.any_text(response).strip().splitlines()[0]}")
+                refused = True
+        elif refused:
+            announce("waiting accepted again")
+            refused = False
 
         # The backlog is pulled on every pass, including after a timeout. `wait_for_event` resolves only
         # for events recorded after the call starts, so anything that landed while the consumer was busy -
