@@ -227,7 +227,13 @@ def test_follow_stops_at_its_deadline_in_a_silent_room() -> None:
         started = clock.time()
         drained = list(events.follow(wait_ms=50, retry_seconds=0, deadline=started + 0.3))
     check("the generator ends", drained, [])
-    check("and it ended near its deadline", clock.time() - started < 5, True)
+    elapsed = clock.time() - started
+    check("and it ended near its deadline", elapsed < 5, True)
+    # The wait is clamped to the time left, so a long wait_ms cannot drag the run past its deadline. With
+    # wait_ms=50 and a 0.3 s deadline the overshoot should be one short wait, not one full one.
+    check("without overshooting by a whole wait", elapsed < 0.6, True)
+    if elapsed >= 0.6:
+        print(f"       ran {elapsed:.2f}s for a 0.3s deadline")
 
 
 def run(test) -> None:

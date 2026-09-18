@@ -56,7 +56,8 @@ All notable changes to this project are documented here. The format follows
   unverified on hardware.**
 - `react.py` takes `--for SECONDS` and `--wait-ms MS`; `watch-events.py` honours `STACKCHAN_RUN_FOR`. The
   deadline is enforced inside the event loop, because it yields only events and a quiet room never returns
-  control to the caller.
+  control to the caller — and the last wait is shortened to the time remaining, so `--for 15` stops at about
+  15 s rather than at the end of a 45 s wait it could not interrupt. Verified on hardware: 15.8 s.
 - `get_robot_info` reports a listener restart count when it is not zero. **Not yet flashed; unverified on
   hardware.**
 

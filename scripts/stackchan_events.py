@@ -116,10 +116,18 @@ def follow(
     degraded = False
 
     while True:
-        if deadline is not None and time.time() >= deadline:
-            announce("deadline reached")
-            return
-        response = robot.call("wait_for_event", {"timeout_ms": wait_ms}, timeout_s=call_timeout_s)
+        this_wait = wait_ms
+        if deadline is not None:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                announce("deadline reached")
+                return
+            # Ask for no more than the time that is left. A wait cannot be interrupted once it is in
+            # flight, so without this the run overshoots by up to a full wait_ms - a 15 s deadline with
+            # 45 s waits would run for a minute, which is not what --for says. The robot clamps
+            # timeout_ms to 100 at the bottom, so match that rather than asking for less than it allows.
+            this_wait = max(100, min(wait_ms, int(remaining * 1000)))
+        response = robot.call("wait_for_event", {"timeout_ms": this_wait}, timeout_s=call_timeout_s)
         if response is None:
             if reachable:
                 announce("unreachable: robot not answering")
