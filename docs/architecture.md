@@ -59,7 +59,7 @@ From power-on to "tools available":
 
 | Module | Responsibility | What a reader would otherwise get wrong |
 |---|---|---|
-| `mod/mcp-server-rich.js` | The HTTP + JSON-RPC 2.0 server: connection limits, request-size/timeout guards, auth, method dispatch, binary-result encoding, listener self-restart. | It is a fork of the firmware's own `mcp-server.ts`, not a wrapper around it — see [design decisions](#design-decisions-worth-knowing). |
+| `mod/mcp-server-rich.js` | The HTTP + JSON-RPC 2.0 server: connection limits, request-size/timeout guards, auth, method dispatch, binary-result encoding, listener self-restart (indefinite, backing off 2 s to 60 s). | It is a fork of the firmware's own `mcp-server.ts`, not a wrapper around it — see [design decisions](#design-decisions-worth-knowing). |
 
 | Module | Responsibility | What a reader would otherwise get wrong |
 |---|---|---|
@@ -82,14 +82,16 @@ From power-on to "tools available":
 | `mod/photo-view.js` | Turns a captured camera frame into a Piu container for the screen: a real RGB565 blit through `runtime-bitmap-port`, falling back to the firmware's coarse mosaic. | The firmware's own bitmap preview is not in any module map, so this replicates it from the pieces that are. The fallback is reported in the tool result, because 15 coloured rectangles is not a photo and a caller should know which it got. |
 | `mod/robot-state.js` | What persists between calls — gaze, torque, what is on screen — for `get_robot_info` to report. | Deliberately does not track the LED ring: `indicators.js` clobbers it around every capture, so a shadowed value would be wrong exactly when someone was reading it to understand a capture. |
 | `mod/font-probe.js` | Resolves a larger balloon font at boot and latches the answer. | Piu resolves fonts lazily, so an unknown name throws from inside a later layout pass where no MOD frame is on the stack — an uncaught exception, a reboot, a dead screen. `Style.measure()` forces the lookup onto our own stack, where it is catchable. |
-| `mod/tools-renamed.js` | Refusing stubs under the pre-0.3.0 capture tool names. | They exist so a stale `permissions.ask` rule still matches a real tool and says what to change, instead of silently matching nothing. |
 | `mod/png.js` | Minimal from-scratch PNG encoder for RGB565 camera frames (grayscale, 256-colour palette, or truecolour). | Uses uncompressed ("stored") deflate blocks — valid PNG, zero compression — because there is no deflate module available to a MOD; see [design decisions](#design-decisions-worth-knowing). |
 | `mod/base64.js` | Writes base64 directly into a caller-supplied output buffer. | Exists specifically to avoid `Uint8Array.prototype.toBase64()`, which would produce an intermediate JS string. |
 
 ## How a request flows
 
 1. A client connects and sends `POST /mcp`. `#handleConnection` first enforces
-   `MAX_CONCURRENT_CONNECTIONS` (4) and starts a 10 s timeout that force-closes a stalled connection.
+   `MAX_CONCURRENT_CONNECTIONS` (4) — over the cap it drains the body and answers HTTP 503 with
+   `Retry-After`, rather than closing silently, because an empty reply is indistinguishable from a
+   crashed server — and starts a 10 s timeout that force-closes a stalled connection. A slow tool holds
+   its slot for its whole duration, which is why `wait_for_event` caps itself at two concurrent waiters.
 2. `#refuseEarly` rejects (closes the raw connection, no response body) any request with
    `Transfer-Encoding` set, or a declared `Content-Length` over 8 KB — before the body is read, because
    the HTTP layer buffers the whole body into RAM first and an unauthenticated oversized request could

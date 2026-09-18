@@ -55,7 +55,10 @@ All notable changes to this project are documented here. The format follows
 
 - **The pre-0.3.0 capture tool aliases.** They existed so a user with stale `permissions.ask` rules on the
   old names got a loud failure rather than a silent bypass; there are no such users and no such rules, so
-  four refusing stubs sat in every `tools/list` for nothing. **Not yet flashed; unverified on hardware.**
+  four refusing stubs sat in every `tools/list` for nothing. **Not yet flashed; unverified on hardware** -
+  and until the robot is flashed `scripts/selftest.py` fails its own coverage check against it, because the
+  device still serves four tools no check exercises. That is the suite being ahead of the device, not a
+  regression; it clears on the flash.
 
 ### Added
 

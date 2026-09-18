@@ -126,9 +126,11 @@ export class MCPServer {
   }
 
   /**
-   * Serves connections, and restarts the listener if the accept loop ever ends.
-   * A response the device cannot finish sending (a large image) kills the loop, and without this the
-   * robot stays on the network with no MCP server until someone power-cycles it.
+   * Serves connections, and restarts the listener whenever the accept loop ends - for as long as the MOD
+   * runs, backing off from 2 s to 60 s. A response the device cannot finish sending (a large image) kills
+   * the loop, and without this the robot stays on the network with no MCP server until someone
+   * power-cycles it. There is deliberately no attempt limit: a cap of five was what turned one dead
+   * listener into an unrecoverable robot (docs/device-notes.md, 2026-09-17).
    */
   async #startServer() {
     let delay = LISTENER_RESTART_DELAY_MIN_MS

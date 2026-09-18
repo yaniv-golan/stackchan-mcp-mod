@@ -681,9 +681,10 @@ What was observed, with the user watching the screen:
 The MOD's listener went away while the host firmware carried on. **Only a hardware reset brought it back** (uptime
 52 s afterwards). Nothing recovered it on its own.
 
-**Why nothing recovered it: the listener gave up after five attempts.** `mod/mcp-server-rich.js` restarts
-the accept loop when it ends, but `LISTENER_RESTART_ATTEMPTS = 5` and the fifth failure `return`s from
-`#startServer`. Nothing called it again - the promise *resolves*, so the `.catch` at the call site never
+**Why nothing recovered it: the listener gave up after five attempts.** *(Fixed 2026-09-18 - see the note
+at the end of this section. The description below is of the code as it stood when this failure happened.)*
+`mod/mcp-server-rich.js` restarted the accept loop when it ended, but `LISTENER_RESTART_ATTEMPTS = 5` and
+the fifth failure `return`ed from `#startServer`. Nothing called it again - the promise *resolves*, so the `.catch` at the call site never
 fired either. The MOD kept running, the face kept drawing, and port 8080 stayed bound by nobody until a
 hardware reset. With `LISTENER_RESTART_DELAY_MS = 2000` and four delays between five attempts, the whole
 budget was spent in about eight seconds, which is why retrying for 40 s did not help: the server had given
@@ -694,6 +695,13 @@ idle-client hypothesis below is still the best candidate. The two are independen
 
 **What would settle the death:** the trace prints `[mcp] listener stopped: <reason>` on every attempt.
 Attaching a serial logger resets this device, so the log has to be running *before* the failure.
+
+**Fixed 2026-09-18 (unverified on hardware).** `LISTENER_RESTART_ATTEMPTS` is gone; the loop now backs off
+from 2 s to 60 s and never stops trying, restarting the backoff whenever a loop managed to accept at least
+one connection. `get_robot_info` reports a non-zero restart count, which is the only warning available
+while the server still answers - once it does not, the robot's own drawer entry "MCP Server" shows the
+failure reason on its screen, and that is the route to use, not a serial cable. **This makes the death
+survivable; it does not explain it.** The idle-client hypothesis above is still untested.
 
 **Untestable after the fact.** Uptime is served by the very server that is down, so there is no way to learn
 whether the device had rebooted before the failure. A serial logger cannot help either: attaching one resets this

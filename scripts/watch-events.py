@@ -2,6 +2,7 @@
 """Stream the robot's input events, one line per event, for as long as this runs.
 
     STACKCHAN_HOST=<robot-ip> scripts/watch-events.py
+    STACKCHAN_RUN_FOR=120 STACKCHAN_HOST=<robot-ip> scripts/watch-events.py   # stop after two minutes
 
 Why this exists: the robot cannot push, so watching means asking repeatedly - and doing that from inside a
 conversation costs a tool call and a turn for every empty answer. Here the waiting happens in this process,
@@ -9,13 +10,17 @@ and only real events reach stdout, so an agent can put this under a monitor (or 
 pay nothing while the room is quiet.
 
 Latency is a round trip, not a poll interval: each wait blocks up to 45 s and returns the moment something
-is recorded. The waiting itself lives in scripts/stackchan_events.py, which the rules runner shares.
+is recorded - STACKCHAN_WAIT_MS changes that, and STACKCHAN_RUN_FOR bounds the whole run so it can be a
+step in a procedure rather than something you have to remember to kill. The waiting itself lives in
+scripts/stackchan_events.py, which the rules runner shares, and the bound is enforced there: this loop
+yields only events, so in a quiet room it never hands control back to be counted.
 
 Output is line-oriented and greppable:
 
     2026-09-17T07:30:01 watching from seq=41
     2026-09-17T07:30:12 touch-panel gesture=forwardSwipe position=-50 intensity=3 seq=42
     2026-09-17T07:31:44 unreachable: robot not answering
+    2026-09-17T07:32:02 robot restarted: event seq reset (412 -> 0)
 
 The failure lines matter. Anything watching only for event lines cannot tell a quiet room from a dead
 script, so state changes are printed too - once per transition, not once per attempt.

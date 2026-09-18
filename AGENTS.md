@@ -43,6 +43,7 @@ working because the build passed or a tool call returned ok.
 | `mod/face-smile.js` | Custom face: a real smile for HAPPY, and the only route to screen touches |
 | `mod/png.js`, `mod/base64.js` | Encoders written for this device's memory limits |
 | `scripts/` | Build, install, reset, check, configure, a raw MCP client, the event watcher, the self-test, the diagnostics collector, the rules runner and the version tool |
+| `scripts/test-events.py`, `scripts/test-rules.py` | Offline tests for the two things no one can exercise by hand: the event-following loop and the rules validator. `scripts/check.sh` runs both; neither needs a robot |
 | `scripts/stackchan_client.py`, `scripts/stackchan_events.py` | Shared by the Python scripts: one MCP client and one event-following loop. Neither holds the token; `scripts/mcp.sh` fetches it per call |
 | `examples/` | A rules file for `scripts/react.py`, and captured events to replay it against offline |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
