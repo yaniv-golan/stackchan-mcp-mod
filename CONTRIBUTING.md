@@ -91,3 +91,20 @@ the next `scripts/install.sh` the source is legitimately ahead of the hardware; 
 
 Include the firmware version, the MOD version (`get_robot_info`), what you asked for, what happened, and the serial
 log if you have it. Note that opening the serial port resets the robot.
+
+## Working on the skill
+
+`stackchan-robot/skills/stackchan-robot/SKILL.md` is not loaded just because the repository is open. It
+reaches an agent only through the plugin, and a plugin installed with **local** scope is bound to the one
+project directory it was installed from - install it from a scratch directory while testing the
+marketplace and it is invisible everywhere else, including here, with nothing to indicate why.
+
+From the repository root:
+
+```
+/plugin marketplace add .
+/plugin install stackchan-robot@stackchan-robot-marketplace
+```
+
+The installed copy is pinned to a commit. After editing `SKILL.md`, reinstall - otherwise you are reading
+the version that was current when you installed, which is the second half of the same trap.
