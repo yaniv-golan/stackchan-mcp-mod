@@ -12,6 +12,8 @@ All notable changes to this project are documented here. The format follows
   `follow()` only moved its cursor forward, so after a reboot `since_seq` sat permanently in the future and
   matched nothing: `watch-events.py` and `react.py` went silent for good while still reporting the robot
   reachable. A reported highest seq below the cursor is the tell, and the reset is now announced.
+  **Verified on hardware 2026-09-18**: a watcher holding a cursor at seq 78 was reset, and logged
+  `robot restarted: event seq reset (78 -> 0)` before resuming.
 - **Events arriving during a blocking action are no longer stranded.** `wait_for_event` resolves only for
   events recorded after the call starts, and a timeout skipped the backlog pull entirely, so anything that
   landed while a `say_message` was playing stayed unread until some unrelated event happened to arrive - in

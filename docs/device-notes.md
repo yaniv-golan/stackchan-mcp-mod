@@ -871,6 +871,20 @@ Because uptime ran unbroken for 41 minutes after the last reset, this cannot be 
 either the display failed to initialise at that boot and nobody looked for 41 minutes, or it stopped
 rendering later. The section above already says "backlit and empty" cannot distinguish those, and this
 occurrence does not distinguish them either. What it adds is the remote remedy.
+
+**A second occurrence the same evening, and the remedy repeated.** Found lit-but-empty again a few hours
+later, this time with **uptime 11718 s** - three and a quarter hours unbroken, so unambiguously the
+stopped-rendering case rather than a failed boot init. The app was demonstrably alive underneath: 78 events
+in the ring buffer including touch-panel presses, every tool answering. One EN pulse cleared it again, face
+back within 36 s. **Two for two on the remote remedy**, which makes `scripts/reset.sh` the first thing to
+reach for rather than an experiment.
+
+A note on the phantom-petting hypothesis above, because the conditions looked right for it and the evidence
+did not support it: the USB cable had been attached to a laptop beside the robot all evening, and the buffer
+did hold touch-panel presses nobody had made. But the sequence number was **static at 78** across three
+successive checks with 8 s waits between them - so the strip was not firing at that moment. Those events
+accumulated earlier. This neither confirms nor refutes phantom petting; it only rules out "it was happening
+right then".
 - Do not run the self-test's capture tier without someone looking at the screen.
 
 ## Earlier display episode (2026-09-16) — same symptom, same cause
