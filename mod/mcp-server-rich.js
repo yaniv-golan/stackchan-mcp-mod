@@ -37,6 +37,15 @@ const BINARY_PLACEHOLDER = '@@stackchan-base64@@'
 // was the only unrecoverable software state this MOD had.
 const LISTENER_RESTART_DELAY_MIN_MS = 2000
 const LISTENER_RESTART_DELAY_MAX_MS = 60000
+// Consecutive failures to bind before the robot says so on its own body. Three fires at about six seconds
+// - the sleeps already completed are 2000 + 4000, because the report happens before the third. That is the
+// shape of the 2026-09-17 incident: five loop ends inside eight seconds with nothing ever bound
+// (docs/device-notes.md).
+const LISTENER_TROUBLE_AFTER_FAILURES = 3
+// Failures stop counting towards that total once the listener has been quiet this long. Without it the
+// counter has no time bound at all, and three unrelated failures spread over a week would light a warning
+// on a robot that is working. A Timer, not Time.ticks arithmetic: ticks wraps negative after ~24.9 days.
+const LISTENER_FAILURE_DECAY_MS = 5 * 60 * 1000
 // The HTTP layer buffers a request body into RAM before any of this code runs, and before the token is
 // checked. Without a cap, an unauthenticated request large enough to exhaust memory reboots the device -
 // and a reboot on this hardware leaves the display dead until someone power-cycles it by hand. The
@@ -80,6 +89,11 @@ export class MCPServer {
   #connections = 0
   #restarts = 0
   #generation = 0
+  #trouble = false
+  #consecutiveFailures = 0
+  #worstFailureRun = 0
+  #failureDecayTimer
+  #onListenerTrouble
 
   constructor(config = {}) {
     this.#port = config.port ?? 8080
@@ -95,6 +109,7 @@ export class MCPServer {
     } else {
       this.#token = token
     }
+    this.#onListenerTrouble = typeof config.onListenerTrouble === 'function' ? config.onListenerTrouble : undefined
     for (const tool of config.tools ?? []) this.addTool(tool)
     if (!this.#token && !this.#tokenTooShort) {
       trace('[mcp] mcp.token is not configured; POST /mcp requests will be rejected\n')
@@ -127,6 +142,26 @@ export class MCPServer {
   }
 
   /**
+   * True while the listener has failed to bind several times running.
+   *
+   * This is a latch detector, not a diagnostic channel: the flag is cleared by the first accepted
+   * connection, so any request that reaches a tool has already cleared it, and a robot that answers while
+   * still reporting trouble has a stuck flag. That is precisely the regression worth catching - an earlier
+   * draft of this feature latched the warning on permanently - and it is what the self-test asserts.
+   */
+  get troubled() {
+    return this.#trouble
+  }
+
+  /**
+   * The longest run of consecutive bind failures since boot. Unlike `troubled`, asking does not clear it,
+   * so this is the number an operator or a tool can actually read after the fact.
+   */
+  get worstFailureRun() {
+    return this.#worstFailureRun
+  }
+
+  /**
    * Serves connections, and restarts the listener whenever the accept loop ends - for as long as the MOD
    * runs, backing off from 2 s to 60 s. A response the device cannot finish sending (a large image) kills
    * the loop, and without this the robot stays on the network with no MCP server until someone
@@ -146,15 +181,22 @@ export class MCPServer {
       this.#connections = 0
       this.#generation += 1
       let served = false
+      let threw = false
       try {
         this.#status = 'running'
         for await (const connection of listen({ port: this.#port })) {
-          served = true
+          if (!served) {
+            // The port is bound and a client reached it. That, and not the loop ending, is what recovery
+            // looks like: a loop that recovers and then works forever never reaches the code below.
+            served = true
+            this.#noteServing()
+          }
           this.#handleConnection(connection).catch((error) => trace(`[mcp] connection error: ${errorMessage(error)}\n`))
         }
         this.#error = 'listener closed'
       } catch (error) {
         this.#error = errorMessage(error)
+        threw = true
       }
       this.#status = 'failed'
       this.#restarts += 1
@@ -162,6 +204,12 @@ export class MCPServer {
       // A loop that accepted at least one connection was working, so start the backoff over. One that died
       // without accepting anything is usually a port not yet released, and hammering it does not help.
       if (served) delay = LISTENER_RESTART_DELAY_MIN_MS
+      // Only a loop that ended by THROWING counts as a failure to bind. A loop that bound fine, sat idle
+      // and then ended normally is not the same thing, and counting it meant a healthy robot could light
+      // the warning while every string describing it said "cannot bind". Whether a bind failure on this
+      // firmware throws at all is unestablished - listen()'s implementation is not in the checkout, only
+      // its typings - so if the LED never lights, this is the line to question first.
+      if (threw && !served) this.#noteFailure()
       trace(`[mcp] restarting the listener in ${delay} ms\n`)
       await this.#sleep(delay)
       delay = Math.min(delay * 2, LISTENER_RESTART_DELAY_MAX_MS)
@@ -173,6 +221,54 @@ export class MCPServer {
    * rejection - which on this device is a reboot - and leave the listener unrecoverable again, which is the
    * whole failure this method exists to prevent.
    */
+  /**
+   * Announces a listener that cannot bind, once per transition rather than once per attempt.
+   *
+   * The try/catch is load-bearing on the `true` path, which runs outside the accept loop's own try: a
+   * throwing callback would escape #startServer and leave the listener stopped for good - the precise
+   * failure this class was changed to make impossible. Because everything is swallowed here, the `false`
+   * path is safe to call from inside the loop, which is where it has to be: recovery is "a connection was
+   * accepted", and a loop that recovers and keeps working never ends to be asked.
+   */
+  #reportTrouble(inTrouble) {
+    if (this.#trouble === inTrouble) return
+    this.#trouble = inTrouble
+    if (!this.#onListenerTrouble) return
+    try {
+      this.#onListenerTrouble(inTrouble, this.#consecutiveFailures)
+    } catch (error) {
+      trace(`[mcp] listener trouble callback failed: ${errorMessage(error)}\n`)
+    }
+  }
+
+  /** Records one failure to bind, and arms the decay that stops old failures counting forever. */
+  #noteFailure() {
+    this.#consecutiveFailures += 1
+    if (this.#consecutiveFailures > this.#worstFailureRun) this.#worstFailureRun = this.#consecutiveFailures
+    try {
+      if (this.#failureDecayTimer !== undefined) Timer.clear(this.#failureDecayTimer)
+      this.#failureDecayTimer = Timer.set(() => {
+        this.#failureDecayTimer = undefined
+        this.#consecutiveFailures = 0
+      }, LISTENER_FAILURE_DECAY_MS)
+    } catch (error) {
+      trace(`[mcp] failure decay timer failed: ${errorMessage(error)}\n`)
+    }
+    if (this.#consecutiveFailures >= LISTENER_TROUBLE_AFTER_FAILURES) this.#reportTrouble(true)
+  }
+
+  /** The listener is working: a client reached it. Clears the count and any warning. */
+  #noteServing() {
+    this.#consecutiveFailures = 0
+    try {
+      if (this.#failureDecayTimer !== undefined) Timer.clear(this.#failureDecayTimer)
+    } catch (error) {
+      trace(`[mcp] failure decay clear failed: ${errorMessage(error)}\n`)
+    }
+    this.#failureDecayTimer = undefined
+    this.#reportTrouble(false)
+  }
+
   #sleep(ms) {
     return new Promise((resolve) => {
       try {
