@@ -740,6 +740,37 @@ that was alive with no listener. On 2026-09-18 a flat battery produced exactly t
 failure, and it was read as a second occurrence until the owner said the battery had died. Only someone in the
 room can tell the two apart.
 
+## A spontaneous reboot with no input - 2026-09-18, not reproduced
+
+Recorded because it happened under a MOD that had just been flashed, and the first question anyone will ask
+is whether the new code caused it. On the evidence here: not established, and not reproducible.
+
+**What happened.** During a 45 s `wait_for_event` held open with nobody near the robot, the connection
+dropped (curl exit 56) and `get_robot_info` came back with **uptime 73 s**. A device reboot, not a listener
+death - a listener death leaves uptime running and increments the restart counter, and neither was the case.
+The user confirmed they were away from the robot, so no button, no touch, no shake.
+
+**What was ruled out, by measurement rather than reasoning:**
+
+| Test | Result |
+|---|---|
+| Idle stability, five cycles over 75 s | Uptime climbed 302 → 365 s unbroken |
+| The exact workload in flight: three 45 s `wait_for_event` cycles | Uptime climbed 400 → 539 s unbroken, every call `rc=0` |
+| Listener restarts since | Zero - `get_robot_info` reports no `Listener:` line at all |
+
+So the long-held connection does not reproduce it, and the device has since run over nine minutes across
+repeated long waits without a blink.
+
+**This device has done this before.** The 2026-09-17 brain session recorded uptime running 669 s → 85 s →
+174 s across one evening - at least two silent reboots with no other signal, on the *previous* MOD. So this
+is consistent with a pre-existing pattern rather than with anything introduced since, though one occurrence
+cannot distinguish those.
+
+**What would settle it, and why nobody has:** the serial log. Opening the port resets this device, so the
+log has to already be running when it happens, and a reboot re-enumerates USB - see the logging notes
+elsewhere in this file. Until someone catches one on serial, a silent reboot here is an observation, not a
+diagnosis.
+
 ## ⚠ The display can stop rendering with no reset at all (2026-09-17)
 
 **Symptom: the panel is backlit and completely empty.** No face, no startup splash residue, no speech balloon —
