@@ -248,8 +248,10 @@ explain. Everything except the display keeps working meanwhile. See `docs/device
 press the bottom reset button while esptool retries.
 
 **A tool call hangs and the robot stops answering.** Something produced a response larger than the device can send,
-which takes the HTTP server down. The server restarts its listener automatically; if it does not come back, reset
-the robot. Report it, since a tool should refuse an oversized result rather than attempt it.
+which takes the HTTP server down. The server restarts its listener automatically, backing off from 2 s to a minute
+and never giving up; if it cannot bind three times running it lights one LED purple, so a robot that looks fine but
+answers nothing is worth a glance before you assume the network. If it does not come back, reset the robot. Report
+it, since a tool should refuse an oversized result rather than attempt it.
 
 **Recordings sound almost silent.** They are: the capture path is about 30 dB quiet on this hardware, for reasons
 not yet established (the ES7210's analog preamp has only 4.5 dB left to give, so it is not the cause). `listen`

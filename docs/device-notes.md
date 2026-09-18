@@ -703,6 +703,17 @@ while the server still answers - once it does not, the robot's own drawer entry 
 failure reason on its screen, and that is the route to use, not a serial cable. **This makes the death
 survivable; it does not explain it.** The idle-client hypothesis above is still untested.
 
+**And it says so on the robot (unverified on hardware).** Three consecutive failures to bind light LED 6 purple,
+re-applied every 30 s and cleared by the first accepted connection; `get_robot_info` reports the restart count and
+the worst run of consecutive failures. LED 6 and not LED 0 because index 0 is the armed-capture indicator. Whether
+a bind failure on this firmware throws - which is what the counter counts - is **not established**: `listen()`'s
+implementation is not in the checkout, only its typings. The trace line `[mcp] listener stopped: <reason>` settles
+it the first time a death is reproduced: a thrown reason names an error, a normal end says `listener closed`.
+
+**Separately, and pre-existing:** `indicators.js` clears the whole LED ring after every capture
+(`lightOff(ledName)` with no range), which also erases the armed-capture indicator at index 0 while `armed` stays
+true for up to ten minutes. Not introduced by that change, not fixed there, recorded so it is not rediscovered.
+
 **Untestable after the fact.** Uptime is served by the very server that is down, so there is no way to learn
 whether the device had rebooted before the failure. A serial logger cannot help either: attaching one resets this
 device on every port open (see below), destroying the state you would be reading.
