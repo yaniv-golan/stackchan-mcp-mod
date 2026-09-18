@@ -54,6 +54,8 @@ works around rather than bugs in the MOD.
 | `play_tone` | Plays a tone (Hz, ms, volume) |
 | `sing` | Sings `koe` notation; needs the stackchan-voice TTS engine |
 | `show_message` / `hide_message` | Shows a short message in a speech balloon on the robot's screen |
+| `show_face` | Puts the face back, whatever replaced it |
+| `show_qr` | Shows a QR code for an http(s) link. Refuses anything else — a `javascript:`, `data:`, wifi-join or plain-text code would lend the robot's trust to something the person scanning it cannot see |
 | `get_robot_info` | Reports MOD version, available hardware, the capture policy and the device's limits |
 | `restart_robot` | Soft reboot — **leaves the screen dead until a manual power-cycle** (see below) |
 | `get_power_registers` | Read-only AXP2101 rail and status registers, for diagnosing a dead display |

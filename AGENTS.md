@@ -129,7 +129,21 @@ These are settled; do not re-litigate them without new evidence on hardware:
 - Recordings are about 30 dB quiet; the cause is unestablished (the analog preamp accounts for at most 4.5 dB of
   it), and a MOD cannot reach the ADC either way.
 - Connections that stall before their headers arrive cannot be timed out from a MOD: the HTTP layer does not yield
-  them to MOD code until the headers are complete.
+  them to MOD code until the headers are complete. Once the headers *are* in, a MOD can bound the response, and the
+  connection-cap refusal does.
+- A lit-but-empty panel is cleared by an **EN pulse over USB** — `STACKCHAN_PORT=<port> scripts/reset.sh 1` — with
+  nobody pressing the bottom button. Two for two on 2026-09-18. The serial port number is not stable across
+  re-plugs; check `ls /dev/cu.usbmodem*` rather than trusting a recorded one.
+- The server serves **four concurrent connections** and any slow call holds one for its whole duration, so
+  `wait_for_event` caps itself at **two concurrent waiters** and refuses the third. Anything new that blocks for a
+  long time is spending the same budget.
+- **`follow()` in `scripts/stackchan_events.py` has no pacing of its own.** `wait_for_event` blocking IS the
+  pacing, so any path where the wait returns instantly — a refusal, a protocol error — must sleep explicitly or the
+  loop becomes a hot poll. It reached 1.1 million calls a second against a fake before this was caught.
+- **A test for an event-loop fix fails by hanging, not by failing.** Every fixture in `scripts/test-events.py` is
+  call-bounded for that reason: without it a regression hangs `scripts/check.sh` rather than reddening it.
+- Removing a tool puts `scripts/selftest.py` **ahead of the robot** until the MOD is flashed: its coverage check
+  fails against a device still serving tools no check exercises. That is the suite being ahead, not a regression.
 
 ## Security invariants
 

@@ -152,6 +152,10 @@ robot, not to your session.
 - **A slow call holds one of the four connections for its whole duration** — a 45-second `wait_for_event`
   holds one for 45 seconds, a `say_message` for the length of the sentence. Two watchers leave two slots
   for everything else.
+- **Two refusals mean "someone else is here", not "the robot is broken".** A third concurrent
+  `wait_for_event` is refused outright with a message naming `get_recent_events`, and a connection over the
+  cap gets HTTP `503` with `Retry-After`. Both are real answers: back off and poll. Do not retry in a tight
+  loop and do not treat either as an unreachable robot.
 - **`get_robot_info` reports what the robot is already doing** — gaze, torque and what is on screen. Call
   it before starting gaze tracking or holding torque, so you do not fight someone else's state. It does
   not report the emotion: the robot changes that by itself when it is patted or shaken, so no stored
@@ -169,7 +173,7 @@ secret ever being visible. Ask the person for a route rather than searching thei
 
 | Symptom | What it means | What to do |
 |---|---|---|
-| Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down | Ask the person to open `http://<robot-ip>:8080/health` — it needs no token and answers `{"status":"ok"}` when the server is alive. If it refuses the connection the listener is gone; ask them to open the robot's drawer and tap **MCP Server**, which shows the failure reason on the screen, then press the bottom reset button. If they mention a purple LED, that is the robot reporting the same thing: its server could not bind. Once it answers again, `get_robot_info` reports the restart count and the worst run |
+| Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down. The listener restarts itself, backing off from 2 s to a minute and never giving up, so a short outage is expected rather than fatal | Ask the person to open `http://<robot-ip>:8080/health` — it needs no token and answers `{"status":"ok"}` when the server is alive. If it refuses the connection the listener is gone; ask them to open the robot's drawer and tap **MCP Server**, which shows the failure reason on the screen, then press the bottom reset button. If they mention a purple LED, that is the robot reporting the same thing: its server could not bind. Once it answers again, `get_robot_info` reports the restart count and the worst run |
 | Screen blank, tools still answer | Either display init failed after a warm reset, or the display stopped rendering mid-session; neither is your fault | Ask whether the screen is dark or lit-but-empty, and call `get_robot_info`: continuous uptime means nothing crashed. A dark panel needs a power-button cycle, a lit one the bottom reset button. No tool can fix either. If the repository and a USB cable are to hand, `STACKCHAN_PORT=<port> scripts/reset.sh 1` sends that hardware reset without anyone pressing the button - it cleared a lit-but-empty panel on 2026-09-18 |
 | A tool reports the camera or mic is busy | Another capture is in flight | Wait and retry once; do not hammer it |
 | `sing` is not in the tool list | The configured TTS engine cannot sing | Expected; use `say_message` |
