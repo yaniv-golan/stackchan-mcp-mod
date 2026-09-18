@@ -817,7 +817,29 @@ Practical rules:
 - **A blank screen is not evidence of a crash.** Read the uptime first. Continuous uptime means the app never
   restarted, so there is no reboot to hunt for in MOD code — an uncaught exception would have reset the device and
   zeroed it.
-- No tool can bring the panel back. A hardware reset (bottom button) or a power cycle is the only route.
+- No tool can bring the panel back. A hardware reset or a power cycle is the only route.
+- **An EN pulse over USB is a hardware reset, and it cleared this on the first try (2026-09-18).** If the
+  cable is attached, `STACKCHAN_PORT=<port> scripts/reset.sh 1` recovers a lit-but-empty panel without
+  anybody pressing the bottom button. That matters when the person who can reach the robot is not the person
+  who noticed - previously the only recorded remedies both needed hands on the device.
+
+### Another occurrence, and the first remote recovery - 2026-09-18
+
+Found lit-but-empty after an evening of MOD work. What was true at the time:
+
+| Check | Result |
+|---|---|
+| Backlight | On. So not the PMIC case |
+| Tools | All answering; 29 tools served, `/health` 200 |
+| Uptime | **2448 s, continuous.** No crash, no reboot |
+| `show_face` then `show_message` | Both returned success; **nothing appeared** - the same "draw something over it" result as 2026-09-17 |
+| What preceded it | Two MOD flashes and a reset about 41 minutes earlier |
+| Recovery | **One EN pulse over USB.** Face back within 15 s |
+
+Because uptime ran unbroken for 41 minutes after the last reset, this cannot be pinned on the flash itself:
+either the display failed to initialise at that boot and nobody looked for 41 minutes, or it stopped
+rendering later. The section above already says "backlit and empty" cannot distinguish those, and this
+occurrence does not distinguish them either. What it adds is the remote remedy.
 - Do not run the self-test's capture tier without someone looking at the screen.
 
 ## Earlier display episode (2026-09-16) — same symptom, same cause
