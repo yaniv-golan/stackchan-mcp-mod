@@ -29,10 +29,13 @@ All notable changes to this project are documented here. The format follows
   until someone pressed reset. That is the silent death documented on 2026-09-17. It now backs off from 2 s
   to 60 s indefinitely, and the connection counter is reset on restart with a clamped decrement so handlers
   still in flight from the dead loop cannot drive it negative and silently raise the concurrency cap.
-  **Not yet flashed; unverified on hardware.**
+  **Flashed 2026-09-18. The recovery path is unverified**: nothing can force the accept loop to die, so the
+  restart, the backoff and the connection-count reset have been reasoned about and built, not observed. A
+  healthy robot reports no restarts, which is consistent with both a working fix and a dead one.
 - **An over-cap connection gets `503` with `Retry-After`** instead of being accepted and closed with no
-  body, which carried no information and looked like a crashed server. **Not yet flashed; unverified on
-  hardware.**
+  body, which carried no information and looked like a crashed server. **Flashed 2026-09-18, still
+  unverified**: reaching the connection cap needs five simultaneous slow calls, and the waiter cap now
+  refuses the third `wait_for_event` before it can hold a slot, so the silent tools cannot get there.
 
 ### Changed
 
@@ -41,34 +44,37 @@ All notable changes to this project are documented here. The format follows
   labelled "conversation level" — while "silent" needed raw < −80 dBFS and "quiet" < −60, neither of which
   this microphone reaches. The anchors are in `docs/device-notes.md`: an empty room at −47.5/−51.4 dBFS RMS
   and speech at −42. The margins are thin, and the note says so. The per-slice row is dBFS rather than a
-  linear 0–100 scale, which read 0 for every slice at any level this hardware produces. **Not yet flashed;
-  unverified on hardware.**
+  linear 0–100 scale, which read 0 for every slice at any level this hardware produces. **Flashed
+  2026-09-18; the labels themselves are unverified** — checking them means recording a room, which needs
+  someone present to make the sounds and to consent to the recording.
 - **A rules file can set `volume` on a `tone` action again.** Refusing unknown keys had taken that away.
   There is deliberately no default: omitted, the tool falls through to the robot's own speaker volume.
 - **`blink` in a rules file takes `period_ms`, not `duration_ms`** - it is the flash period, and `leds` used
   the same name for a lifetime, which is how the shipped example came to start an alarm nothing ever
   stopped. A `blink` step with `duration_ms` is now refused at load, and the example turns its own LEDs off.
 - **`camera_take_photo` offers only `160x120`.** The other two sizes were always refused by the body budget,
-  in colour and grayscale alike, so the schema advertised two options that could never succeed. **Not yet
-  flashed; unverified on hardware.**
+  in colour and grayscale alike, so the schema advertised two options that could never succeed. **Verified
+  on hardware 2026-09-18**: the robot advertises `enum: ['160x120']`, and `240x176` is refused with `size
+  must be one of 160x120` before the camera is touched.
 - **`wait_for_event` allows two concurrent waiters.** A waiting call holds one of four connection slots for
-  its whole timeout; a third caller is refused with a message naming `get_recent_events`. **Not yet flashed;
-  unverified on hardware.**
+  its whole timeout; a third caller is refused with a message naming `get_recent_events`. **Verified on
+  hardware 2026-09-18**: three simultaneous waits gave two clean timeouts and one refusal, and a third
+  consumer polled instead of reporting the robot unreachable.
 - `react.py` takes `--for SECONDS` and `--wait-ms MS`; `watch-events.py` honours `STACKCHAN_RUN_FOR`. The
   deadline is enforced inside the event loop, because it yields only events and a quiet room never returns
   control to the caller — and the last wait is shortened to the time remaining, so `--for 15` stops at about
   15 s rather than at the end of a 45 s wait it could not interrupt. Verified on hardware: 15.8 s.
-- `get_robot_info` reports a listener restart count when it is not zero. **Not yet flashed; unverified on
-  hardware.**
+- `get_robot_info` reports a listener restart count and the worst run of consecutive failures when they are
+  not zero. **Flashed 2026-09-18**; a freshly booted robot correctly reports neither, which the self-test
+  asserts. A non-zero value has not been observed.
 
 ### Removed
 
 - **The pre-0.3.0 capture tool aliases.** They existed so a user with stale `permissions.ask` rules on the
   old names got a loud failure rather than a silent bypass; there are no such users and no such rules, so
-  four refusing stubs sat in every `tools/list` for nothing. **Not yet flashed; unverified on hardware** -
-  and until the robot is flashed `scripts/selftest.py` fails its own coverage check against it, because the
-  device still serves four tools no check exercises. That is the suite being ahead of the device, not a
-  regression; it clears on the flash.
+  four refusing stubs sat in every `tools/list` for nothing. **Verified on hardware 2026-09-18**: the robot
+  serves 29 tools, `tools/list` is 16,125 bytes, and `scripts/selftest.py` passes its own coverage check
+  again — it had been failing against the unflashed device, which was the suite being ahead of the robot.
 
 ### Added
 
@@ -76,9 +82,9 @@ All notable changes to this project are documented here. The format follows
   re-applied every 30 s so a capture clearing the ring cannot erase it, and cleared by the first accepted
   connection. `get_robot_info` reports the restart count and the worst run of consecutive failures — both
   survive being asked about, unlike the flag itself. This is the shape of the 2026-09-17 failure: five loop
-  ends in eight seconds with nothing ever bound. **Not yet flashed; unverified on hardware, and the trigger
-  path has never run** — whether a bind failure throws on this firmware, which is what the counter counts,
-  is not established either.
+  ends in eight seconds with nothing ever bound. **Flashed 2026-09-18; the trigger path has never run.** A
+  healthy robot lights nothing, which the self-test checks, but whether a bind failure throws on this
+  firmware — which is what the counter counts — remains unestablished.
 - Offline test harnesses for the two things no one could exercise by hand: `scripts/test-events.py` for the
   event-following loop and `scripts/test-rules.py` for the rules validator. Both run in `scripts/check.sh`.
 
