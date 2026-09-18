@@ -519,7 +519,7 @@ the same pins the docs call IR. Confirm against the schematics before touching e
 | ~77 KB (160x120 truecolor) | client received ~1.4 KB (one TCP segment) then stalled; same server death |
 
 **`tools/list` is not near the ceiling, despite comments in the tree saying it is.** Measured 2026-09-18 on
-this robot: **16,819 bytes for 33 tools** - well under the 28 KB body budget and under the 24,000-byte
+this robot: **16,819 bytes for 33 tools**, and **16,125 bytes for 29** after the pre-0.3.0 aliases were dropped - well under the 28 KB body budget and under the 24,000-byte
 limit `scripts/selftest.py` already enforces. It grows with every tool and every lengthened description, so
 the check is worth keeping; the alarm is not.
 

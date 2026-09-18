@@ -59,7 +59,7 @@ MAX_ENCODED_BLOB_BYTES = 28000
 
 # `tools/list` is itself an HTTP response, not exempt from the same failure mode as a photo or a
 # recording: it grows with every tool added and every description lengthened, nobody budgets it on
-# purpose, and it is 16,819 bytes for 33 tools (measured 2026-09-18). A response much over ~28 KB does not merely fail
+# purpose, and it is 16,125 bytes for 29 tools (measured 2026-09-18). A response much over ~28 KB does not merely fail
 # to parse on this device - it kills the HTTP accept loop, and the robot is left on the network with no
 # MCP server at all. 24 KB leaves real margin below that line rather than chasing it.
 TOOLS_LIST_MAX_BYTES = 24000

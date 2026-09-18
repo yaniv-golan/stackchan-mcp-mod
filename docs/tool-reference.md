@@ -2,7 +2,7 @@
 
 # Tool reference
 
-33 tools, read from a robot on 2026-09-17.
+29 tools, read from a robot on 2026-09-18.
 
 ## `blink_leds`
 
@@ -19,11 +19,11 @@ Blink the head-ring LEDs at a color. r/g/b are clamped to 0..255, duration_ms (t
 
 ## `camera_take_photo`
 
-Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. Color uses a 256-color palette, the same size as grayscale; the robot cannot send a larger image than about 24 KB, so bigger sizes are refused.
+Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. 160x120 is the only size this robot can send. Color uses a 256-color palette, the same pixel size as grayscale, but at ~27.8 KB on the wire it sits just under what the device can transmit, so prefer grayscale unless color is the point.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `size` | string (160x120, 176x144, 240x176) | no | Capture size, default 160x120. Larger sizes need more memory and may fail. |
+| `size` | string (160x120) | no | Capture size. 160x120 is the only value this robot can send. |
 | `color` | boolean | no | Return a 256-color palette PNG instead of the default grayscale |
 | `show_on_screen` | boolean | no | Also display the captured photo on the robot's own screen, in place of the face, for about ten seconds before the face returns. Default false. If the screen cannot show a real picture right now, it falls back to a coarse color mosaic instead - the result text says which one happened. |
 
@@ -55,12 +55,6 @@ List recently recorded input events (button presses, screen touches, head touch-
 | `limit` | integer | no | Max events to return (default 20, clamped 1-64) |
 | `since_seq` | integer | no | Only return events with seq greater than this value |
 
-## `get_recorded_audio`
-
-Renamed to `mic_get_audio`. Do not call this; call that instead and update your permission rules.
-
-No arguments.
-
 ## `get_robot_info`
 
 Report what this robot is: MOD version, uptime, network address, which hardware the MOD could reach, and the limits worth knowing before calling other tools.
@@ -81,12 +75,6 @@ Turn off the head-ring LEDs. Optionally limit the effect to a range of LEDs with
 |---|---|---|---|
 | `index` | integer | no | First LED index to affect, 0..11 (default: all LEDs) |
 | `count` | integer | no | Number of LEDs to affect starting at index, 1..12 (default: all LEDs) |
-
-## `listen`
-
-Renamed to `mic_listen`. Do not call this; call that instead and update your permission rules.
-
-No arguments.
 
 ## `look_at`
 
@@ -149,12 +137,6 @@ Play a rainbow animation on the head-ring LEDs. Optionally limit the effect to a
 |---|---|---|---|
 | `index` | integer | no | First LED index to affect, 0..11 (default: all LEDs) |
 | `count` | integer | no | Number of LEDs to affect starting at index, 1..12 (default: all LEDs) |
-
-## `record_and_play`
-
-Renamed to `mic_record_and_play`. Do not call this; call that instead and update your permission rules.
-
-No arguments.
 
 ## `restart_robot`
 
@@ -265,12 +247,6 @@ Show a QR code on the robot screen for a link, so a person nearby can scan it wi
 |---|---|---|---|
 | `text` | string | yes | The link to encode. Must start with http:// or https://; refused otherwise. Max 300 characters. |
 | `seconds` | number | no | Seconds to show the code before restoring the face, 1..60 (default 20). |
-
-## `take_photo`
-
-Renamed to `camera_take_photo`. Do not call this; call that instead and update your permission rules.
-
-No arguments.
 
 ## `wait_for_event`
 
