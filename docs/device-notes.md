@@ -944,6 +944,29 @@ measurement could move them - and **one noisier room could invalidate the quiet/
 A daytime room with HVAC or traffic is easily more than 2.5 dB above a late-evening one, and would read
 "conversation level" empty. That is not a placement error; no threshold inside a 5.5 dB window escapes it.
 
+### The microphone's actual noise floor - measured 2026-09-18 on the flashed MOD
+
+The first real floor measurement for this hardware, and the first taken with the per-slice row in dBFS
+rather than the linear 0-100 scale that rounded everything to zero. Unoccupied room, believed quiet:
+
+    RMS 0.002 (-55.2 dBFS), peak 0.014 (-37.4 dBFS)
+    slices: -56,-56,-56,-57,-57,-55,-56,-56,-50,-56,-57,-56,-57
+
+**The floor is about -56 dBFS, +/-1, with one excursion to -50.** Thirteen coherent slices, not an
+aggregate - this is what the linear scale was hiding.
+
+**An occupied room is 4-8 dB louder than an unoccupied one.** The earlier anchors (-47.5 and -51.4) were
+taken with someone sitting in the room; the same room empty is -55.2. That gap is larger than either margin
+the bands were placed within, and it is the reason the first placement was wrong in both directions at
+once: too close to "conversation level" for a noisy room, and - as it turned out first - below `silent` for
+an empty one. Anyone re-deriving these thresholds should treat "quiet room" as a 4-8 dB band, not a value.
+
+**What that cost, recorded because it is the useful part:** `silent` was set to -54 from the occupied
+samples, so an unoccupied room read "silent" - the band documented as meaning a dead capture path - on a
+robot whose microphone was visibly working. It is now -90, below anything a live microphone produces and
+above the -96 floor a disconnected ADC returns, which separates the two by construction rather than by
+margin.
+
 ### The approach that would replace thresholding, and what would settle it
 
 Absolute RMS is near the limit of what one threshold can carry here. The per-200 ms slices look more robust:
@@ -955,10 +978,17 @@ linear scale. Slice variance would degrade gracefully across rooms instead of de
 15.3 and 17.4 dB of crest here, and speech RMS sits 12-20 dB below its own peak - the ranges overlap, so
 peak-minus-RMS cannot separate "someone is talking" from "this room is noisy" on this hardware.
 
-**What would settle it:** one `mic_listen` over speech and one over a quiet room, both with the per-slice row,
-which is now dBFS. If the variance of the speech slices is clearly larger, the discriminator is worth building
-and the thresholds become a fallback. There is no speech slice data on record, so this is not implemented -
-guessing at it is what produced the inverted bands an earlier attempt shipped.
+**The floor measurement above now supports the same argument twice over.** A live microphone in a silent
+room has a 7 dB spread across its slices; a disconnected or stuck one has none at all. So variance separates
+"dead air" from "quiet room" exactly as it would separate "someone talking" from "noisy room" - and a level
+threshold can do neither, which is why `silent` had to be pushed 34 dB below the floor rather than placed
+near it.
+
+**What would settle it:** one `mic_listen` over speech, back to back with a fresh quiet-room control, both
+with the dBFS slice row. The control half exists (above). If the speech slices are visibly more variable
+than that 7 dB floor spread, the discriminator is worth building and the thresholds become a fallback.
+There is still no speech slice data on record, so it is not implemented - guessing is what produced the
+inverted bands one attempt earlier, and the `silent` misplacement one attempt after that.
 
 **On-screen prompts:** `show_message` / `hide_message` drive `robot.ui.showBalloon/hideBalloon`, and the recording
 tools show "Listening..." while the mic is open, so the person knows when to speak. Verified on the device.

@@ -61,10 +61,18 @@ const MAX_DECIMATION_FACTOR = 8
 // placement inside a 5.5 dB window avoids this; it is a limit of thresholding absolute RMS at all. See
 // docs/device-notes.md for the approach that would replace it.
 //
-// `silent` is deliberately below anything this microphone has been seen to produce. It means dead air - a
-// disconnected or failed capture path - not a quiet room. A quiet room is `quiet`, which is what an empty
-// room should read.
-const SILENT_DBFS = -54
+// `silent` means dead air - a disconnected or failed capture path - not a quiet room. It is placed at -90
+// rather than near the room level, because level cannot tell those two apart and guessing at it got this
+// wrong once already: -54 was set from occupied-room samples, and an UNOCCUPIED room measured -55.2, so a
+// working robot in a quiet house reported its own microphone as broken. An empty room is `quiet`.
+//
+// -90 separates them by construction instead of by margin. A disconnected ADC returns zeros, and toDbfs
+// floors those at DBFS_FLOOR (-96); this microphone's own noise floor is about -56 dBFS with a 7 dB spread
+// across slices (docs/device-notes.md, measured 2026-09-18). 34 dB apart, so no room can reach it.
+//
+// What this does NOT do is detect a *stuck* capture path that returns a constant non-zero value. That needs
+// slice variance, not a level - see the note in device-notes.md.
+const SILENT_DBFS = -90
 const QUIET_DBFS = -45
 const CONVERSATION_DBFS = -30
 // Floor used in place of -Infinity for a zero-amplitude sample.

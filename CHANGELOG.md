@@ -45,8 +45,11 @@ All notable changes to this project are documented here. The format follows
   this microphone reaches. The anchors are in `docs/device-notes.md`: an empty room at −47.5/−51.4 dBFS RMS
   and speech at −42. The margins are thin, and the note says so. The per-slice row is dBFS rather than a
   linear 0–100 scale, which read 0 for every slice at any level this hardware produces. **Flashed
-  2026-09-18; the labels themselves are unverified** — checking them means recording a room, which needs
-  someone present to make the sounds and to consent to the recording.
+  2026-09-18, and immediately corrected**: `silent` was placed at −54 dBFS from occupied-room samples, and
+  an *unoccupied* room measures −55.2, so a working robot in a quiet house reported the band that means "the
+  capture path is dead". It is now −90 — below anything a live microphone produces and above the −96 a
+  disconnected ADC returns — which separates dead air from a quiet room by construction rather than by
+  margin. The `quiet` and `conversation level` boundaries are unchanged and still unverified against speech.
 - **A rules file can set `volume` on a `tone` action again.** Refusing unknown keys had taken that away.
   There is deliberately no default: omitted, the tool falls through to the robot's own speaker volume.
 - **`blink` in a rules file takes `period_ms`, not `duration_ms`** - it is the flash period, and `leds` used
@@ -95,6 +98,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Documented
 
+- **This microphone's actual noise floor: about −56 dBFS, ±1, with a 7 dB spread across slices.** The first
+  real floor measurement for this hardware, and the first readable one — the old linear slice scale rounded
+  it all to zero. Also that an occupied room runs 4–8 dB louder than the same room empty, which is a wider
+  band than either margin the loudness thresholds were placed within, and is why the first placement was
+  wrong in both directions at once.
 - **Why the dead listener never came back.** The 2026-09-17 note recorded "Nothing recovered it on its own"
   as unexplained; the explanation was already in the tree. Also records the measured `tools/list` size,
   contradicting two comments calling it near the body ceiling.
