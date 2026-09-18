@@ -38,10 +38,25 @@ import stackchan_client as robot
 import stackchan_events as events
 from stackchan_client import emit
 
-WAIT_MS = int(os.environ.get("STACKCHAN_WAIT_MS", str(events.DEFAULT_WAIT_MS)))
+def _number_from_env(name: str, default: float) -> float:
+    """An environment variable read as a number, or a usable message instead of a traceback.
+
+    These are read at import, so a typo used to end the run with a ValueError stack and no indication of
+    which variable was wrong - the least helpful possible answer to `STACKCHAN_RUN_FOR=2m`.
+    """
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise SystemExit(f"{name} must be a number of {'milliseconds' if name.endswith('_MS') else 'seconds'}, not {raw!r}") from None
+
+
+WAIT_MS = int(_number_from_env("STACKCHAN_WAIT_MS", events.DEFAULT_WAIT_MS))
 # Seconds to watch for before stopping on its own; 0 means run until interrupted. A bounded run is
 # what makes this usable as a step in a procedure rather than something you have to remember to kill.
-RUN_FOR_S = float(os.environ.get("STACKCHAN_RUN_FOR", "0"))
+RUN_FOR_S = _number_from_env("STACKCHAN_RUN_FOR", 0)
 
 
 def line(event: dict) -> str:
