@@ -49,7 +49,9 @@ All notable changes to this project are documented here. The format follows
   an *unoccupied* room measures −55.2, so a working robot in a quiet house reported the band that means "the
   capture path is dead". It is now −90 — below anything a live microphone produces and above the −96 a
   disconnected ADC returns — which separates dead air from a quiet room by construction rather than by
-  margin. The `quiet` and `conversation level` boundaries are unchanged and still unverified against speech.
+  margin. **The `quiet` and `conversation level` boundaries are now verified against speech on hardware**: a
+  quiet room reads `quiet` at −57.6 dBFS and a person talking reads `conversation level` at −41.5, which also
+  independently confirms the −42 speech anchor carried from a single earlier measurement.
 - **A rules file can set `volume` on a `tone` action again.** Refusing unknown keys had taken that away.
   There is deliberately no default: omitted, the tool falls through to the robot's own speaker volume.
 - **`blink` in a rules file takes `period_ms`, not `duration_ms`** - it is the flash period, and `leds` used

@@ -999,6 +999,36 @@ robot whose microphone was visibly working. It is now -90, below anything a live
 above the -96 floor a disconnected ADC returns, which separates the two by construction rather than by
 margin.
 
+### Speech against a matched control - measured 2026-09-18, and the bands validated
+
+The measurement the loudness work had been missing. Same room, back to back, cued on the robot's own screen
+so the timing was tight. 2500 ms each.
+
+| | Aggregate RMS | Label | Slices (dBFS) |
+|---|---|---|---|
+| Quiet control | **-57.6 dBFS** | `quiet` | -60,-57,-58,-58,-57,-58,-58,-57,-57,-57,-57,-58,-58 |
+| Normal speech at arm's length | **-41.5 dBFS** | `conversation level` | -55,-56,-56,-57,-48,-35,-40,-53,-48,-36,-38,-50,-52 |
+
+**The bands are correct on real data.** An empty room reads `quiet` and a person talking reads
+`conversation level` - which is what the whole recalibration was for, and it had not been checked against
+speech until now. -41.5 also independently confirms the -42 speech anchor that had been carried from a
+single earlier measurement.
+
+**And the slice structure settles the discriminator question decisively:**
+
+| | Slice spread | Slice stdev | Runs of consecutive slices above -45 dBFS |
+|---|---|---|---|
+| Control | 3 dB | 0.8 | none |
+| Speech | **22 dB** | **7.7** | two runs of two |
+
+That is **7.3x the spread and 9.4x the standard deviation**. The control has no slice above -45 at all; the
+speech has two separate pairs of adjacent ones, with quiet slices between them - the gaps between phrases.
+
+**This confirms the shape argument and rules out the range one.** A lone transient - the door-close that put
+7 dB into an earlier floor reading - produces a run of *one*. Speech produces runs of two or more with gaps.
+So a discriminator should look for consecutive elevated slices, not for spread exceeding a threshold, and
+the two cases are separable by a wide margin rather than a fine one.
+
 ### The approach that would replace thresholding, and what would settle it
 
 Absolute RMS is near the limit of what one threshold can carry here. The per-200 ms slices look more robust:
@@ -1027,11 +1057,14 @@ equal to the offset and could read anywhere on the scale, including "conversatio
 variance across slices. No level threshold can catch that case and the variance approach can, which is a
 second reason to want it. So `-90` covers one failure mode, not the class.
 
-**What would settle it:** one `mic_listen` over speech, back to back with a fresh quiet-room control, both
-with the dBFS slice row. The control half exists (above). If the speech slices are visibly more variable
-than that 7 dB floor spread, the discriminator is worth building and the thresholds become a fallback.
-There is still no speech slice data on record, so it is not implemented - guessing is what produced the
-inverted bands one attempt earlier, and the `silent` misplacement one attempt after that.
+**That experiment has now been run** - see the section above. The answer is yes by a wide margin: 22 dB of
+slice spread against 3, and consecutive elevated slices where a transient gives an isolated one. The
+discriminator is worth building and the numbers to build it against are recorded.
+
+It is still not implemented here, and that is a scope decision rather than a data one: the thresholds now
+label both measured cases correctly, so this would be an improvement in robustness across *rooms*, not a
+fix for anything known to be wrong. Whoever takes it should use runs of consecutive slices above a level
+set relative to the reading's own floor, not an absolute spread.
 
 **On-screen prompts:** `show_message` / `hide_message` drive `robot.ui.showBalloon/hideBalloon`, and the recording
 tools show "Listening..." while the mic is open, so the person knows when to speak. Verified on the device.
