@@ -1,6 +1,6 @@
 {
   "name": "stackchan-mcp-mod",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "An MCP server MOD for Stack-chan that exposes the robot's capabilities as MCP tools",
   "license": "Apache-2.0",
   "private": true,

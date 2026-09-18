@@ -3,11 +3,12 @@ name: stackchan-robot
 description: Operate a Stack-chan desk robot through its MCP tools — take photos, listen to the room, speak, move the head, light the LEDs, show messages and react to touch. Use whenever a request involves what the robot should see, hear, say, show or do, when interpreting what the robot sensed, or when the robot stops responding and needs recovery. Covers safe operation of real hardware: what the device cannot do, which call can leave it needing a human, and how to report physical outcomes honestly.
 license: Apache-2.0
 metadata:
-  version: 0.3.0
-compatibility: Requires the stackchan-mcp-mod MOD, version 0.3.0 or later (the release that renamed the capture
-  tools to camera_take_photo/mic_listen/mic_get_audio/mic_record_and_play), installed on an M5StackChan CoreS3 and
-  registered as an MCP server. Call get_robot_info and check the reported MOD version before assuming a tool by
-  either name exists.
+  version: 0.4.0
+compatibility: Requires the stackchan-mcp-mod MOD, version 0.4.0 or later, installed on an M5StackChan CoreS3 and
+  registered as an MCP server. 0.4.0 removed the pre-0.3.0 capture tool aliases (take_photo, listen,
+  record_and_play, get_recorded_audio); the capture tools are camera_take_photo, mic_listen, mic_record_and_play
+  and mic_get_audio, and there are no others. Call get_robot_info and check the reported MOD version before
+  assuming a tool exists - which tools are served varies with version, hardware and configuration.
 ---
 
 # Operating a Stack-chan robot

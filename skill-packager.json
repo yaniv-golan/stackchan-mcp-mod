@@ -15,7 +15,7 @@
   "marketplace_name": "stackchan-robot-marketplace",
   "display_name": "Stackchan Robot",
   "description": "Operate a Stack-chan desk robot through its MCP tools: camera, microphone, speech, head motion, LEDs and touch.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author_name": "Yaniv Golan",
   "author_email": "yaniv@golan.name",
   "github_owner": "yaniv-golan",

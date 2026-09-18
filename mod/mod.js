@@ -17,7 +17,7 @@ import { powerTools } from 'tools-power'
 import { qrTools } from 'tools-qr'
 import { systemTools } from 'tools-system'
 
-const VERSION = '0.3.0'
+const VERSION = '0.4.0'
 const MCP_PORT = 8080
 const DRAWER_KEY = 'mcp-server:endpoint'
 // The far side of the 12-LED ring from the armed indicator, which owns index 0 (capture-policy.js).
