@@ -73,9 +73,25 @@ it, so neither an attacker holding the token nor an assistant following injected
 uv run --with bleak scripts/set-prefs.py mcp.capture=armed
 ```
 
-`armed` is worth it when the robot lives somewhere other people sit, when a client you do not control holds the
-token, or when an assistant runs against it unattended. On a personal desk, `open` plus always-ask in your client
-is a reasonable trade.
+`armed` is worth it when the robot lives somewhere other people sit, or when an assistant runs against it
+unattended. On a personal desk, `open` plus always-ask in your client is a reasonable trade — **for as long as the
+robot is only reachable from your LAN, by the one client you configured.**
+
+**Bridging the robot to a remote client breaks both halves of that trade.** This file says above to never expose
+port 8080 beyond your own network, and bridging is a way that happens without anyone opening a port: some clients
+can reach a local MCP server from elsewhere — Claude Desktop exposing it to Cowork is the case that prompted this
+note. Two things change at once, independently:
+
+- **The always-ask half does not travel.** `permissions.ask` is configuration belonging to one client. A second
+  client reaching the same robot has its own rules, or none, and nothing about the robot enforces the first one's.
+  That is why this file tells you to configure your client rather than trusting the MOD to ask.
+- **The reachability half changes shape.** A LAN-only port is protected partly by the network. Bridged, the bearer
+  token is all that is left — and it lives in plaintext in client configuration.
+
+**If the robot may be reached by a client you did not configure, set `mcp.capture=off`.** The camera and
+microphone tools are then never registered, and no token, client or injected instruction can bring them back. Do
+not reach for `armed` here: arming is a ten-minute window on the whole robot, not a per-call confirmation, so once
+you swipe the head strip for your own reasons, any client holding the token can capture freely until it lapses.
 
 ## Hardening the unauthenticated surface
 
