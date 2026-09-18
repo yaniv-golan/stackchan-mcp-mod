@@ -984,6 +984,37 @@ anchored on the measurements below (they were offset by the measured 30 dB until
 the 30 dB was measured on a *peak* and applied to an *RMS* reading, so an empty room read "conversation level"). Verified on the device: speech
 recorded at -42 dBFS RMS was clearly audible when played back with the default gain.
 
+### `play_tone` audibility - tested 2026-09-18, the reported silence did not reproduce
+
+A brain session reported that reflex tones "play in silence": `play_tone` with no `volume` falls through to
+the device's speaker volume, and the conclusion drawn was that this default is inaudible. Tested directly
+with someone listening, numbered on the robot's own screen so the order was unambiguous:
+
+| | Call | Heard? |
+|---|---|---|
+| TONE 1 | `{hz: 660, duration_ms: 130}` - no volume, the reported case | **yes** |
+| TONE 2 | `{hz: 660, duration_ms: 130, volume: 0.5}` - explicit | **yes** |
+| TONE 3 | `{hz: 880, duration_ms: 400, volume: 0.35}` - the firmware's startup chirp shape | **yes** |
+
+Then a frequency sweep at 250 ms, the duration `examples/rules.json` actually uses, in case the speaker rolls
+off at the bottom: **220, 330, 440 and 660 Hz were all clearly audible.** 220 Hz is exactly what the shipped
+"protest a shake" rule plays.
+
+**Nothing reproduces.** Not the fall-through, not the duration, not the frequency. This is what the code
+already said: with no `volume`, `Speaker.tone` uses `this.volume`, which is `tts.volume` - `0.5` on this
+robot - so TONE 1 and TONE 2 put the identical `AudioOut.Volume` value of 128 on the wire and could not have
+differed.
+
+**Why the original report was wrong, in the reporter's own words.** They confirmed with the user that the
+*spoken* lines had been heard and inferred from that that their manual tones were audible too - they never
+asked about the tones. So "manual audible, reflex silent, therefore volume" rested on an untested premise.
+A second argument, that `indicators.js` passing `CHIRP_VOLUME = 0.35` shows the codebase knows the default
+is inaudible, runs backwards: 0.35 is *below* the 0.5 default, so it reads as "quieter than normal".
+
+**No fix was made and none is warranted.** `examples/rules.json` keeps its 220 Hz tone. The one change kept
+is unrelated and stands on its own: `volume` is an accepted key on a `tone` action, with no default, because
+refusing unknown keys had taken away the ability to pass it at all.
+
 ### Microphone loudness anchors - measured 2026-09-18
 
 Two `mic_listen` calls, 2500 ms, 16 kHz mono 16-bit, in an occupied room late evening with nobody speaking.
