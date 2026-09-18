@@ -192,6 +192,10 @@ def checks() -> list[Check]:
             args={"timeout_ms": 300},
             # Either outcome is correct: a quiet window times out, a touched one returns the event.
             expect=(r"No event within 300 ms|Event received: seq=\d+ kind=\w",),
+            # A third outcome is also correct and is not this suite's business: the robot allows two
+            # concurrent waiters, so a run started while watch-events.py and react.py are both following
+            # is refused. That is the cap working, not a regression.
+            tolerate=(r"already waiting for an event",),
         ),
         Check(
             name="an unknown tool is an -32602 error, not a crash",

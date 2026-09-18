@@ -9,6 +9,13 @@ const RING_CAPACITY = 64
 // request timeout; going much higher risks the client abandoning a call while the robot still holds
 // the connection. Callers wanting a shorter wait just pass a smaller timeout_ms.
 const WAIT_TIMEOUT_MAX_MS = 45000
+// A waiting call holds one of the server's four connection slots for its whole timeout, so watchers spend
+// the budget every other caller shares. Two leaves half for interactive use. The connection layer cannot
+// tell a watcher from anything else; this tool can, so the refusal belongs here - and it is a clean tool
+// error naming the alternative rather than the silent close the connection cap would give.
+const MAX_CONCURRENT_WAITERS = 2
+const WAITER_CAP_ADVICE =
+  'Use get_recent_events with since_seq instead, or read the log of whatever is already watching.'
 const VALID_KINDS = ['button', 'touch', 'touch-panel', 'imu']
 const BUTTON_NAMES = ['a', 'b', 'c', 'power']
 const VIRTUAL_BUTTON_NAMES = ['a', 'b', 'c']
@@ -290,6 +297,10 @@ export function createEvents(robot) {
           throw new Error(`kind must be one of ${VALID_KINDS.join(', ')}`)
         }
         const timeoutMs = normalizeInteger(args.timeout_ms, 'timeout_ms', 5000, 100, WAIT_TIMEOUT_MAX_MS)
+        if (waiters.size >= MAX_CONCURRENT_WAITERS) {
+          const detail = `${waiters.size} callers are already waiting for an event, which is this robot's limit.`
+          throw new Error(`${detail} ${WAITER_CAP_ADVICE}`)
+        }
 
         return new Promise((resolve) => {
           const waiter = { kind, timer: undefined, resolve: undefined }
