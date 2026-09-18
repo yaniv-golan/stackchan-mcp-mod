@@ -96,14 +96,21 @@ class Outcome:
     seconds: float = 0.0
 
 
-def no_phantom_listener_restarts(response: dict) -> str | None:
-    """A restart count on a robot that has only just booted is a counter reporting something else.
+def listener_state_is_coherent(response: dict) -> str | None:
+    """Two things a robot that just answered must not claim about its own listener.
 
-    The line is absent when the count is zero, so this cannot assert its presence - what it can assert is
-    that a robot under a minute old does not claim its listener has been dying, which is the way a
-    miswired counter would show itself.
+    The IN TROUBLE flag is cleared by the first accepted connection, so the connection carrying this very
+    call cleared it. A robot that answers while still reporting trouble has a stuck flag - which is exactly
+    the regression an earlier draft of that feature shipped, where the warning latched on permanently.
+
+    The restart count is separate: on a robot under a minute old it should be small, because it cannot have
+    been dying for long. That check runs second on purpose. A genuinely troubled robot trips the warning
+    about six seconds after boot, so if it ran first it would report a young robot's honest restart count as
+    a miswired counter and mask the real message.
     """
     text = robot.text_of(response) or ""
+    if "Listener: IN TROUBLE" in text:
+        return "reports its listener in trouble, on a call that reached a tool - the flag is stuck"
     restarts = re.search(r"Listener: restarted (\d+) time", text)
     if not restarts:
         return None
@@ -111,7 +118,6 @@ def no_phantom_listener_restarts(response: dict) -> str | None:
     if uptime and int(uptime.group(1)) < 60 and int(restarts.group(1)) > 0:
         return f"claims {restarts.group(1)} listener restart(s) after only {uptime.group(1)}s of uptime"
     return None
-
 
 def photo_is_usable(response: dict) -> str | None:
     """A photo has to be a real PNG that this device could actually have sent."""
@@ -203,14 +209,14 @@ def checks() -> list[Check]:
             expect=(r"yaw=-?[\d.]+deg", r"position=\["),
         ),
         Check(
-            name="a freshly booted robot reports no listener restarts",
+            name="a robot that answers does not claim a broken listener",
             tier="read",
             tool="get_robot_info",
             # The consequence, not the status: the restart counter has to be real. A robot whose accept
             # loop has never died must not claim it has - a line that appeared unconditionally, or a
             # counter wired to the wrong thing, would show up here rather than being believed later.
             expect=(r"Uptime: \d+ s",),
-            verify=no_phantom_listener_restarts,
+            verify=listener_state_is_coherent,
         ),
         Check(
             name="waiting for an event times out cleanly",
