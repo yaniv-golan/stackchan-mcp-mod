@@ -691,6 +691,17 @@ dies again.
 **If you meet this:** check `ping` and the face before assuming the robot is dead, then press the bottom reset
 button. Do not reflash - the MOD is intact, and the failure is in what it is doing, not in what was written.
 
+**Rule out the battery first.** Left unplugged, this robot flattens its battery in a night, and from the network a
+flat battery is indistinguishable from the failure above - the port stops answering either way. `ping` separates
+them: a device that is off does not reply, one with a dead listener does. Check the cable before diagnosing
+anything.
+
+**Do not over-read uptime afterwards.** Uptime says when the device booted and nothing about the period before, so
+a gap between the last successful call and the computed boot time fits *both* a device that was off and a device
+that was alive with no listener. On 2026-09-18 a flat battery produced exactly the timing signature of this
+failure, and it was read as a second occurrence until the owner said the battery had died. Only someone in the
+room can tell the two apart.
+
 ## ⚠ The display can stop rendering with no reset at all (2026-09-17)
 
 **Symptom: the panel is backlit and completely empty.** No face, no startup splash residue, no speech balloon —
