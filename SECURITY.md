@@ -85,8 +85,12 @@ note. Two things change at once, independently:
 - **The always-ask half does not travel.** `permissions.ask` is configuration belonging to one client. A second
   client reaching the same robot has its own rules, or none, and nothing about the robot enforces the first one's.
   That is why this file tells you to configure your client rather than trusting the MOD to ask.
-- **The reachability half changes shape.** A LAN-only port is protected partly by the network. Bridged, the bearer
-  token is all that is left — and it lives in plaintext in client configuration.
+- **The reachability half changes shape, and how much depends on the method.** Anything that makes the port
+  itself publicly reachable — a tunnel, a port forward — leaves the bearer token as the only protection, on a
+  device whose HTTP layer has an unfixed unauthenticated reboot. A *local proxy* such as the Claude Desktop
+  bridge is different and better: the proxy runs on your machine, so the port stays LAN-only. What still changes
+  there is narrower but real — the token is copied into a second plaintext config file, and a remote party can
+  now originate a robot action that a process on your LAN carries out.
 
 There is one remote route that does **not** break the first half: the Claude Desktop bridge runs its proxy
 on your own machine, so the robot stays LAN-only and never has a port open to the internet. See
