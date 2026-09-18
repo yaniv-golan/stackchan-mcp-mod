@@ -46,7 +46,7 @@ def test_a_misspelled_action_key_is_refused() -> None:
     result = load([rule([{"action": "leds", "r": 1, "g": 2, "b": 3, "duration_mss": 9000}])])
     check("a typo on a key the builder reads is refused", isinstance(result, str), True)
     check("the refusal names the key", "duration_mss" in str(result), True)
-    result = load([rule([{"action": "tone", "hz": 660, "duration_ms": 130, "volume": 0.9}])])
+    result = load([rule([{"action": "tone", "hz": 660, "duration_ms": 130, "waveform": "square"}])])
     check("a key no builder reads is refused", isinstance(result, str), True)
 
 
@@ -78,6 +78,18 @@ def test_blink_takes_a_period_not_a_duration() -> None:
     check("and reaches the tool as duration_ms", result[0].then[0][1]["duration_ms"], 400)
 
 
+def test_tone_volume_is_optional_and_passes_through() -> None:
+    print("load_rules: tone volume")
+    # Omitted, the tool falls through to the robot's own speaker volume - the builder must not invent a
+    # default, because inventing one would silently change every existing rule's loudness.
+    result = load([rule([{"action": "tone", "hz": 660, "duration_ms": 130}])])
+    check("omitted, no volume is sent at all", "volume" in result[0].then[0][1], False)
+    result = load([rule([{"action": "tone", "hz": 660, "duration_ms": 130, "volume": 0.6}])])
+    check("given, it reaches the tool", result[0].then[0][1].get("volume"), 0.6)
+    result = load([rule([{"action": "tone", "hz": 660, "duration_ms": 130, "volume": 9}])])
+    check("and it is clamped", result[0].then[0][1].get("volume"), 1.0)
+
+
 def test_the_shipped_example_still_loads() -> None:
     print("load_rules: examples/rules.json")
     root = pathlib.Path(__file__).resolve().parent.parent
@@ -89,6 +101,7 @@ def main() -> int:
     test_a_correct_rule_still_loads()
     test_a_step_may_be_annotated()
     test_blink_takes_a_period_not_a_duration()
+    test_tone_volume_is_optional_and_passes_through()
     test_the_shipped_example_still_loads()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")

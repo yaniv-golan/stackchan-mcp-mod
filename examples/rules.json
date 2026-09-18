@@ -3,7 +3,7 @@
   "rules": [
     {
       "name": "greet a swipe",
-      "comment": "Stroking the head strip forwards. The release event carries the tap details, so match press to react as it happens.",
+      "comment": "Stroking the head strip forwards. The release event carries the tap details, so match press to react as it happens. say blocks the event loop for the whole of playback - fine here because a greeting is the whole reaction, but do not put one in a rule meant to keep up with someone.",
       "when": { "kind": "touch-panel", "gesture": "forwardSwipe" },
       "then": [
         { "action": "emotion", "emotion": "HAPPY" },

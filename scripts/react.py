@@ -15,6 +15,12 @@ Two things make that safe to leave running.
 vocabulary; there is no expression to evaluate and no way to reach a tool this file does not list. A typo
 is refused at load rather than silently never matching.
 
+**`say` and `wait` stop the loop hearing anything.** `run_actions` calls them synchronously, so a rule that
+speaks blocks the event loop for the whole ten to thirty seconds of playback, and one that waits blocks for
+its seconds. Nothing is lost - the backlog is pulled on the next pass, by sequence number - but nothing is
+*reacted to* either, and a gesture made during the sentence is answered late or not at all. Prefer a short
+`show` to a `say` in a rule meant to keep up with a person.
+
 **Two actions keep running after the rule ends.** `blink` flashes until something stops it - `period_ms`
 is how fast, not how long - and `gaze` tracks until `gaze_off`. A rule that starts either and does not
 stop it has left the robot that way for good. The shipped example turns its own alarm off; copy that.
@@ -137,13 +143,19 @@ ACTIONS: dict[str, Action] = {
         ("x", "y", "z"),
     ),
     "gaze_off": Action("look_away", lambda s: {}, ()),
+    # `volume` is accepted but has no default here: omitted, the tool falls through to the robot's own
+    # speaker volume, which is `tts.volume` (0.5 on this robot) - the same value an explicit 0.5 produces,
+    # bit for bit. A reflex tone that goes unheard is therefore not a volume the rules file failed to set,
+    # whatever it looks like; see docs/internal for the measurement that has to settle it. The key exists
+    # so a rules file can raise it anyway, because refusing unknown keys took that ability away.
     "tone": Action(
         "play_tone",
         lambda s: {
             "hz": _number(s, "hz", None, 100, 8000),
             "duration_ms": int(_number(s, "duration_ms", 200, 20, 3000)),
+            **({"volume": _number(s, "volume", None, 0, 1)} if "volume" in s else {}),
         },
-        ("hz", "duration_ms"),
+        ("hz", "duration_ms", "volume"),
     ),
     # Not a tool: a pause between actions, so a routine can let one finish being seen.
     "wait": Action(None, lambda s: {"seconds": _number(s, "seconds", 1, 0, 5)}, ("seconds",)),
