@@ -14,7 +14,9 @@ robot — a passing build proves only that the JavaScript compiles.
 
 - [AGENTS.md](AGENTS.md): the constraints, the layout, the conventions, and the settled questions not worth
   re-litigating. Read this before changing code.
-- [README.md](README.md): what the project is, the tool list, how to build, install and configure it.
+- [README.md](README.md): what the project is, the tool list, and what it can do.
+- [docs/getting-started.md](docs/getting-started.md): the whole path from a robot in its box to one answering
+  on your LAN - firmware, BLE preferences, the capture policy, build and install. All of it hands-on-device.
 - [docs/architecture.md](docs/architecture.md): how the modules fit together, the boot sequence, and how a request
   flows from HTTP to a tool handler.
 
@@ -27,6 +29,9 @@ robot — a passing build proves only that the JavaScript compiles.
   in this code.
 - [SECURITY.md](SECURITY.md): what installing this exposes, the capture policy, and the hardening of the
   unauthenticated request path.
+- [docs/remote-access.md](docs/remote-access.md): reaching the robot from a Cowork cloud session via the Claude
+  Desktop bridge, and what that costs - the token crosses the LAN in cleartext, and Claude Code's permission
+  rules are not in the path.
 - [CONTRIBUTING.md](CONTRIBUTING.md): what a change needs before it can be proposed.
 - [CHANGELOG.md](CHANGELOG.md): release history.
 

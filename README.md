@@ -82,44 +82,21 @@ Measured on an M5StackChan CoreS3 running v1.1.0:
 - **No A/B/C buttons exist** on this hardware; only `power`. The CoreS3 target's virtual buttons are compiled out.
 - `say_message` returns only after playback finishes, which can take tens of seconds for a long sentence.
 
-## Build
+## Getting it running
 
-Requires [Moddable SDK](https://github.com/Moddable-OpenSource/moddable) **9.0.0** exactly — the device rejects a
-MOD whose XS version does not match the host — and a stack-chan checkout at tag **v1.1.0** for the platform config.
-No ESP-IDF needed: `mcrun` compiles the JavaScript, it does not build the firmware.
+Full path from a robot still in its box — firmware, preferences over BLE, the capture policy, build and
+install — is in **[docs/getting-started.md](docs/getting-started.md)**. It is all hands-on-the-device work.
+
+If the robot already runs stack-chan v1.1.0 and has its `mcp.token` set, the short version is:
 
 ```sh
-git clone --depth 1 --branch 9.0.0 https://github.com/Moddable-OpenSource/moddable ~/moddable
-# add the prebuilt tools for your host from the 9.0.0 release into $MODDABLE/build/bin/mac/release
-git clone --depth 1 --branch v1.1.0 https://github.com/stack-chan/stack-chan ~/stack-chan
-
+# Moddable SDK 9.0.0 exactly - the device rejects a MOD whose XS version does not match the host
 MODDABLE=~/moddable STACKCHAN=~/stack-chan scripts/build.sh
+STACKCHAN_PORT=/dev/cu.usbmodem1101 scripts/install.sh
 ```
 
-## Install
-
-The MOD archive goes to the `xs` partition at `0xfa0000` (256 KB). Installing replaces whatever MOD is there.
-
-```sh
-STACKCHAN_PORT=/dev/cu.usbmodem2101 scripts/install.sh
-```
-
-Set `mcp.token` on the robot first (Settings mode over BLE, or the
-[preferences web tool](https://stack-chan.github.io/stack-chan/web/preference/)); `POST /mcp` rejects every request
-while it is unset. To roll back, write the stock `mcp.xsa` from the v1.1.0 MOD gallery to the same offset.
-
-## Configure the token
-
-The robot rejects every `POST /mcp` until the `mcp.token` preference is set. Generate a long random token and set it
-in the robot's Settings mode over BLE, or with the
-[preferences web tool](https://stack-chan.github.io/stack-chan/web/preference/):
-
-```sh
-openssl rand -hex 32
-```
-
-Keep it out of your shell history and out of this repository; `scripts/mcp.sh` reads it from `STACKCHAN_TOKEN`, or
-from the macOS Keychain (`stackchan-mcp-token`).
+The archive goes to the `xs` partition at `0xfa0000` (256 KB) and replaces whatever MOD was there. `POST /mcp`
+rejects every request until `mcp.token` is set, which is a BLE operation — see the guide.
 
 ## Try it
 
@@ -150,54 +127,12 @@ The robot joins the new network on that boot. Its address changes, and nothing a
 work on this firmware. Find it by its MAC in the ARP table and re-run the `claude mcp add` above, because a client
 registered against the old address simply stops working.
 
-## Using it from a Cowork cloud session
+## Driving it from a Cowork cloud session
 
-A cloud session cannot reach the robot directly. Anthropic's sandbox refuses private, internal and
-link-local addresses, and a remote MCP connector is dialled from Anthropic's infrastructure rather than
-from your machine, so it would need the robot to be publicly accessible - which
-[SECURITY.md](SECURITY.md) tells you not to do, and means it.
-
-**The Claude Desktop bridge is the route that does not require exposing anything.** Desktop proxies MCP
-servers from its own config into a cloud Cowork session, and the proxy process runs on *your* machine, so
-it reaches the robot over the LAN. The robot never has a port open to the internet. Verified end to end on
-2026-09-18: a cloud Cowork session called `get_robot_info` and got an answer from the robot on the LAN.
-
-In `claude_desktop_config.json`, using `mcp-remote` as a stdio-to-HTTP shim:
-
-```json
-{
-  "mcpServers": {
-    "stackchan": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote@0.14.2", "http://<robot-ip>:8080/mcp", "--allow-http",
-               "--header", "Authorization: Bearer <token>"]
-    }
-  }
-}
-```
-
-Three things that cost time if you do not know them:
-
-- **`--allow-http` is required.** Without it `mcp-remote` exits immediately with "Non-HTTPS URLs are only
-  allowed for localhost", which reads exactly like the robot being unreachable.
-- **Pin the version forward, not back.** 0.0.5 to 0.1.15 carried a critical RCE (CVE-2025-6514); 0.1.16 is
-  merely the oldest fixed release, not a good choice today.
-- **A normal Claude Desktop chat does not see a bridged server.** It will report the tools missing, which
-  looks like a broken setup. The bridge feeds Cowork, not Desktop's own conversations. `~/Library/Logs/
-  Claude/main.log` settles it - look for `[LocalMcpServerManager] Connected to stackchan` and
-  `[localMcpBridge] announcing stackchan`.
-
-What it costs, and these are not small:
-
-- **Desktop must stay open.** Close it and the robot vanishes from the cloud session mid-conversation.
-- **Recovery is much slower than the outage.** After a robot reboot the bridge exhausts its retries and
-  marks the server failed; on 2026-09-18 the robot served normally for **17 minutes** before Desktop
-  retried. Nothing on the Cowork side can hurry it - only Desktop's own reconnect restores it. `Connection
-  closed` in that log means the robot is not answering, not that the proxy is broken.
-- **Your client's permission rules do not travel.** This is the part to read
-  [SECURITY.md](SECURITY.md#limiting-what-the-robot-can-do) about before you set it up: `permissions.ask`
-  belongs to one client, so a second client reaching the same robot has its own rules or none. If the robot
-  may be reached by a client you did not configure, set `mcp.capture=off`.
+A cloud session cannot reach a LAN address. The route that works without exposing the robot is the Claude
+Desktop bridge, whose proxy runs on your own machine — **[docs/remote-access.md](docs/remote-access.md)** has
+the config, the three things that cost time, and what it costs, including that the token crosses your LAN in
+cleartext on every call.
 
 ## Watching for events
 

@@ -47,6 +47,8 @@ working because the build passed or a tool call returned ok.
 | `scripts/stackchan_client.py`, `scripts/stackchan_events.py` | Shared by the Python scripts: one MCP client and one event-following loop. Neither holds the token; `scripts/mcp.sh` fetches it per call |
 | `examples/` | A rules file for `scripts/react.py`, and captured events to replay it against offline |
 | `stackchan-robot/` | The Claude Code plugin: operator skill plus its manifest; `.claude-plugin/` at the root is the marketplace |
+| `docs/getting-started.md` | Bare robot to working on the LAN; the only place the firmware flash is written down |
+| `docs/remote-access.md` | The Claude Desktop bridge into a Cowork cloud session, and its costs |
 | `docs/architecture.md` | How the pieces fit and what happens at boot |
 | `docs/device-notes.md` | The empirical record: measurements, firmware bugs, dead ends |
 
