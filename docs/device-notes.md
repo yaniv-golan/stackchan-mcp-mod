@@ -693,17 +693,25 @@ up before the retries began.
 This explains the *non-recovery*, not the *death*. Why the accept loop ended is still open and the
 idle-client hypothesis below is still the best candidate. The two are independent.
 
+> **On "unverified" in this section.** The MOD carrying these changes was flashed on 2026-09-18 and the
+> robot has been running it since - that part is not in doubt. What is unverified is narrower and cannot be
+> fixed by flashing: **the accept loop cannot be made to die on demand**, so the restart, the backoff, the
+> connection-count reset and the warning LED have never once executed. They are deployed and unexercised,
+> which is a different thing from undeployed, and the difference matters when the next failure arrives.
+
 **What would settle the death:** the trace prints `[mcp] listener stopped: <reason>` on every attempt.
 Attaching a serial logger resets this device, so the log has to be running *before* the failure.
 
-**Fixed 2026-09-18 (unverified on hardware).** `LISTENER_RESTART_ATTEMPTS` is gone; the loop now backs off
+**Fixed 2026-09-18, flashed and running. The recovery path itself has never fired.**
+`LISTENER_RESTART_ATTEMPTS` is gone; the loop now backs off
 from 2 s to 60 s and never stops trying, restarting the backoff whenever a loop managed to accept at least
 one connection. `get_robot_info` reports a non-zero restart count, which is the only warning available
 while the server still answers - once it does not, the robot's own drawer entry "MCP Server" shows the
 failure reason on its screen, and that is the route to use, not a serial cable. **This makes the death
 survivable; it does not explain it.** The idle-client hypothesis above is still untested.
 
-**And it says so on the robot (unverified on hardware).** Three consecutive failures to bind light LED 6 purple,
+**And it says so on the robot - flashed and running, though the trigger has never fired.** Three
+consecutive failures to bind light LED 6 purple,
 re-applied every 30 s and cleared by the first accepted connection; `get_robot_info` reports the restart count and
 the worst run of consecutive failures. LED 6 and not LED 0 because index 0 is the armed-capture indicator. Whether
 a bind failure on this firmware throws - which is what the counter counts - is **not established**: `listen()`'s
