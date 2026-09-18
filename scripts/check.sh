@@ -23,6 +23,9 @@ scripts/selftest.py --list >/dev/null
 scripts/react.py examples/rules.json --events-from examples/captured-events.txt >/dev/null
 echo "[check] example rules load and replay ok"
 
+scripts/test-events.py >/dev/null
+echo "[check] event loop tests ok"
+
 if command -v npx >/dev/null; then
   npx --yes @biomejs/biome@1.9.4 ci mod
   echo "[check] biome lint and format ok"

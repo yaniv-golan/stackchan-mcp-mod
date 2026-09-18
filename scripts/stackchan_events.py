@@ -40,8 +40,14 @@ COMMON_FIELDS = ("seq", "kind")
 
 
 def highest_seq(text: str) -> int:
-    """The buffer's highest sequence number, which both event tools report."""
-    match = re.search(r"highest seq(?: overall)?: (\d+)", text)
+    """The buffer's highest sequence number, which every get_recent_events answer reports.
+
+    Case-insensitive on purpose: the MOD writes "Highest seq overall" when it has nothing to return and
+    "(highest seq overall: N)" when it does. A reader that sees only the second form reads 0 for an empty
+    answer, which is indistinguishable from a robot that has just restarted - and that is precisely the
+    comparison the restart detection below makes.
+    """
+    match = re.search(r"highest seq(?: overall)?: (\d+)", text, re.IGNORECASE)
     return int(match.group(1)) if match else 0
 
 
