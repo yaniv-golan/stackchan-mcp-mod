@@ -12,7 +12,8 @@
  * - connection-level hardening the unauthenticated path needs: body size cap, no chunked encoding, a
  *   receive timeout, a concurrent-connection cap, and draining bodies nobody reads so an aborted
  *   upload cannot leave an unhandled rejection (which reboots this device)
- * - a minimum token length, and the listener restarts itself if the accept loop ever ends
+ * - a minimum token length, a 503 rather than a silent close at the connection cap, and a listener that
+ *   restarts itself indefinitely if the accept loop ever ends
  */
 import { base64Length, writeBase64 } from 'base64'
 import { DOMAIN } from 'consts'
@@ -214,8 +215,22 @@ export class MCPServer {
 
   async #handleConnection(connection) {
     if (this.#connections >= MAX_CONCURRENT_CONNECTIONS) {
-      trace('[mcp] too many connections; closing\n')
-      connection.close()
+      // Closing silently gave the client an empty reply, which carries no information and is
+      // indistinguishable from a crashed server. Answer instead - but drain the body first: a rejected
+      // body promise nobody awaits is an unhandled rejection, and that reboots this device.
+      trace('[mcp] too many connections; refusing\n')
+      try {
+        this.#drainBody(connection.request)
+        const body = { error: 'Service Unavailable', reason: 'too many concurrent connections' }
+        await connection.respondWith(this.#json(503, body, { 'Retry-After': '1' }))
+      } catch (error) {
+        trace(`[mcp] refusal response failed: ${errorMessage(error)}\n`)
+        try {
+          connection.close()
+        } catch (closeError) {
+          trace(`[mcp] refusal close failed: ${errorMessage(closeError)}\n`)
+        }
+      }
       return
     }
     this.#connections += 1
