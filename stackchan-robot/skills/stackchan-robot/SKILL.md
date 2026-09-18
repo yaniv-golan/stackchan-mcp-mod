@@ -41,9 +41,14 @@ If tools start failing mid-session, call it again: an unreachable robot and a br
 
 ## The camera
 
-Default to grayscale; it is a third the size and always works. Colour is a 256-colour palette image at the same
-small size. Anything larger is refused before the camera is touched, because a response that large would take the
-robot's HTTP server down.
+**Only `160x120` fits.** Larger sizes are refused before the camera is touched, in grayscale and colour
+alike — the response would be large enough to take the robot's HTTP server down. Do not spend a call
+finding that out.
+
+Colour is a 256-colour palette image about 4% larger than grayscale, not three times — but a colour photo
+at this size is roughly **27.8 KB on the wire against a 28 KB ceiling**, and that ceiling is the largest
+body known to work rather than a measured cliff. Grayscale leaves a kilobyte of margin. Prefer it, and
+reach for colour only when colour is the point.
 
 Capturing briefly pauses the head touch strip, and the frame is whatever the head is pointed at — if the photo
 shows a ceiling or a wall, move the head and take another rather than describing a bad frame.
@@ -102,8 +107,14 @@ Events accumulate in a small ring buffer: head-strip gestures, recognized IMU mo
 touches with coordinates. Two ways to use them:
 
 - **Poll**: `get_recent_events` with `since_seq` from the previous call, so you see only what is new.
-- **Block**: `wait_for_event` when you have just asked the person to do something. It waits up to 30 seconds and
-  returns cleanly on timeout, which is a normal outcome, not a failure.
+- **Block**: `wait_for_event` when you have just asked the person to do something. Its default is 5
+  seconds and its maximum is 45; pass `timeout_ms` explicitly, because the default is shorter than a
+  person takes to react. It returns cleanly on timeout, which is a normal outcome, not a failure.
+
+**`wait_for_event` only sees events recorded after the call starts.** Anything that happened while you
+were doing something else — including while a `say_message` was playing — is already in the buffer, and
+the wait will never resolve for it. That is what `get_recent_events` with `since_seq` is for, and it is
+not optional housekeeping: it is the half of the pattern that makes the other half correct.
 
 The IMU only reports recognized motions (shake, fallen over) — not raw orientation. The head strip reports
 gestures, not positions. Screen touches are only reported for the face area.
@@ -116,14 +127,37 @@ watching means asking repeatedly, and the way to do that cheaply is one long wai
 - Call `wait_for_event` with a **long** `timeout_ms` (up to 45 s). It returns the instant something happens, so a
   long wait costs nothing in responsiveness — it only avoids a stream of empty polls. A timeout is a normal
   outcome, not an error; call it again.
-- Between waits, `get_recent_events` with `since_seq` catches anything that landed in the gap. The robot keeps the
-  last 64 events, so nothing is lost even if you are away for a while — only your *reporting* lags.
+- Between waits, `get_recent_events` with `since_seq` catches anything that landed in the gap — and you
+  have to actually make that call. The robot keeps the last 64 events, so the buffer will still have
+  them; a wait alone will not hand them to you.
+- **Compare `uptime` across calls.** A drop means the robot restarted, and event sequence numbers restart
+  at 1 with it, so a `since_seq` you were holding is now in the future and matches nothing at all. Nothing
+  else announces a restart; the robot looks entirely normal afterwards.
 - Do not poll `get_recent_events` in a tight loop. It answers instantly, which makes it tempting, and it is pure
   waste next to a blocking wait.
 - **If you are watching for more than a few minutes, get out of the conversation entirely.** With the repository
   to hand, `STACKCHAN_HOST=<ip> scripts/watch-events.py` prints one line per event and nothing while idle, so it
   can run under a background monitor: empty waits then cost no tokens and no turns, and only real events reach you.
   It also prints a line when the robot stops answering, so silence genuinely means "nothing happened".
+
+## When something else is also driving the robot
+
+One robot, one driver. The device serves four concurrent connections and has no threads, and almost
+everything it exposes is a global singleton — emotion, LEDs, torque, head pose and gaze belong to the
+robot, not to your session.
+
+- **If `scripts/react.py` or `scripts/watch-events.py` is running, do not call `wait_for_event` yourself.**
+  An event wakes *every* waiter, so you and the rules runner will both react to the same touch and the
+  person sees it twice. Read the runner's log instead.
+- **A slow call holds one of the four connections for its whole duration** — a 45-second `wait_for_event`
+  holds one for 45 seconds, a `say_message` for the length of the sentence. Two watchers leave two slots
+  for everything else.
+- **`get_robot_info` reports what the robot is already doing** — gaze, torque and what is on screen. Call
+  it before starting gaze tracking or holding torque, so you do not fight someone else's state. It does
+  not report the emotion: the robot changes that by itself when it is patted or shaken, so no stored
+  answer would be reliable.
+- **"Busy" errors may not be yours.** `camera is busy with another capture` and `already playing` mean
+  another caller got there first, which from here is indistinguishable from an intermittent fault.
 
 **Never go looking for the robot's credentials.** If you find yourself wanting the bearer token — to run `curl` in
 a shell, say — stop: reading it out of a client configuration file is indistinguishable from credential theft, and
@@ -135,7 +169,7 @@ secret ever being visible. Ask the person for a route rather than searching thei
 
 | Symptom | What it means | What to do |
 |---|---|---|
-| Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down | Wait ~10s for the listener to restart; if it does not, the person must reset the robot |
+| Calls hang, then stop working entirely | A response exceeded what the device can send and took the server down | Ask the person to open `http://<robot-ip>:8080/health` — it needs no token and answers `{"status":"ok"}` when the server is alive. If it refuses the connection the listener is gone; ask them to open the robot's drawer and tap **MCP Server**, which shows the failure reason on the screen, then press the bottom reset button |
 | Screen blank, tools still answer | Either display init failed after a warm reset, or the display stopped rendering mid-session; neither is your fault | Ask whether the screen is dark or lit-but-empty, and call `get_robot_info`: continuous uptime means nothing crashed. A dark panel needs a power-button cycle, a lit one the bottom reset button. No tool can fix either |
 | A tool reports the camera or mic is busy | Another capture is in flight | Wait and retry once; do not hammer it |
 | `sing` is not in the tool list | The configured TTS engine cannot sing | Expected; use `say_message` |
@@ -160,8 +194,14 @@ frame is wrong, adjust and retake instead of apologising for a bad picture.
 **Ask and wait**: `show_message` with the question, `wait_for_event` for a touch, or `mic_listen` for a response.
 Give the person time to react — a 2-second window is not enough for someone to look up and act.
 
-**React to what happened**: on a touch or a shake, an emotion plus a short line plus a small head move reads as one
-reaction. Three tool calls, one moment.
+**React to what happened**: an emotion plus a small head move reads as one reaction. Keep `say_message`
+out of it unless you want the pause — it blocks for ten to thirty seconds, which is not a reaction.
+
+**You cannot do reflexes.** A round trip plus your own turn is seconds; a person's press-swipe-release is
+under a second. By the time you have answered, the gesture is over. If the robot should respond to being
+touched or shaken *as it happens*, that is `scripts/react.py` in this repository — it pairs events with
+short routines from a fixed vocabulary and runs outside the conversation. Tell the person that is what
+they want rather than trying to be fast enough.
 
 **Idle presence**: `look_at` a point near the person for gaze tracking, and remember to `look_away` afterwards.
 
@@ -176,3 +216,7 @@ Emotions are free and instant — use them as punctuation. `HAPPY` draws a real 
 - Loud is not loud: read the qualitative level, not the raw dBFS.
 - Clamped motion values are reported in the result — read them before claiming the pose you requested.
 - The person can see the screen. Anything you put there with `show_message` stays until it times out or you hide it.
+- A tool error does not prove the robot did nothing. A client-side timeout means it did not *answer* in
+  time; the speech may still be playing. Check with `get_robot_info` before retrying — a retry into a busy
+  device fails differently and tells you less.
+- `blink_leds`' `duration_ms` is the flash *period*. It blinks until something stops it.
