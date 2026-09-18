@@ -62,6 +62,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The robot shows when its MCP server cannot bind.** Three consecutive failures light one LED purple,
+  re-applied every 30 s so a capture clearing the ring cannot erase it, and cleared by the first accepted
+  connection. `get_robot_info` reports the restart count and the worst run of consecutive failures — both
+  survive being asked about, unlike the flag itself. This is the shape of the 2026-09-17 failure: five loop
+  ends in eight seconds with nothing ever bound. **Not yet flashed; unverified on hardware, and the trigger
+  path has never run** — whether a bind failure throws on this firmware, which is what the counter counts,
+  is not established either.
 - Offline test harnesses for the two things no one could exercise by hand: `scripts/test-events.py` for the
   event-following loop and `scripts/test-rules.py` for the rules validator. Both run in `scripts/check.sh`.
 
@@ -82,6 +89,11 @@ All notable changes to this project are documented here. The format follows
   were wrong: grayscale is 4% smaller than colour rather than a third, `wait_for_event`'s maximum is 45 s
   rather than 30, and "nothing is lost even if you are away" holds only if the reader makes the `since_seq`
   call.
+- **What bridging the robot to a remote client breaks**, and that `mcp.capture=off` — not `armed` — is the
+  control to reach for: `armed` is a ten-minute window on the whole robot, not a per-call confirmation, so
+  once the owner swipes for their own reasons any token holder can capture until it lapses.
+- **A pre-existing LED bug**, in `docs/device-notes.md`: `indicators.js` blanks the whole ring after every
+  capture, which erases the armed-capture indicator while `armed` is still true.
 - **How to install the plugin so the skill you are editing is the one that loads.**
 - **The MCP server can stop listening while the robot looks healthy.** The face draws, `ping` is clean, and port
   8080 refuses every connection - the inverse of the known display failure, and the refusal is what distinguishes
