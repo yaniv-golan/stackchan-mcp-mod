@@ -388,7 +388,9 @@ def checks() -> list[Check]:
             tool="mic_listen",
             args={"duration_ms": 600},
             min_seconds=0.6,
-            expect=(r"Recorded ~600 ms", r"Loudness: RMS "),
+            # The slice row is asserted because a linear 0-100 scale read 0 for every slice at any level
+            # this microphone reaches, and nothing here would have noticed it going back.
+            expect=(r"Recorded ~600 ms", r"Loudness: RMS ", r"slice RMS, dBFS:"),
             tolerate=(r"capture is disabled|not armed",),
         ),
         Check(

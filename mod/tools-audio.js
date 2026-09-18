@@ -40,14 +40,23 @@ const MIN_AUDIO_BYTES = 1000
 // Refuse to downsample further than this; beyond it the audio is too mangled to be worth sending.
 const MAX_DECIMATION_FACTOR = 8
 
-// Loudness bands from RMS dBFS. Chosen empirically for a room-scale mic on a desktop robot:
-//   < -50 dBFS         : "silent"             (mic noise floor, nobody talking)
-//   -50 .. -30 dBFS     : "quiet"              (faint background sound)
-//   -30 .. -12 dBFS     : "conversation level" (normal speech at arm's length)
-//   >= -12 dBFS         : "loud"               (close talking, shouting, music)
-const SILENT_DBFS = -50
-const QUIET_DBFS = -30
-const CONVERSATION_DBFS = -12
+// Loudness bands, as RMS dBFS straight off the wire - no offset. The previous bands added a 30 dB
+// allowance that had been measured on a PEAK and applied to an RMS reading, with speech as the only anchor
+// and no measured empty room, so a silent room read -50.5 dBFS, became -20.5, and was labelled
+// "conversation level" - while "silent" needed raw < -80 and "quiet" raw < -60, neither of which this
+// microphone can reach. Speech RMS sits 12-20 dB below its own peak, which is the whole of that error, and
+// the crest factors measured below (15-17 dB on room noise) sit squarely in that band.
+//
+// Anchored 2026-09-18 on measurements in docs/device-notes.md:
+//   empty room (occupied, nobody speaking)  -47.5 and -51.4 dBFS RMS
+//   speech at arm's length                  -42 dBFS RMS
+// Only ONE boundary has to fall between those: "silent" sits below the room and "loud" above speech. It is
+// placed at -45, which is 2.5 dB above the louder room sample and 3 dB below speech. That is thin, and it
+// is thin because the anchors are 5.5 dB apart - two samples of one room, no clap anchor, one speech
+// figure. Do not widen these without measuring again, and do not read them as precise.
+const SILENT_DBFS = -54
+const QUIET_DBFS = -45
+const CONVERSATION_DBFS = -30
 // Floor used in place of -Infinity for a zero-amplitude sample.
 const DBFS_FLOOR = -96
 
@@ -104,10 +113,9 @@ function toDbfs(amplitude) {
 const QUIET_PATH_ALLOWANCE_DB = 30
 
 function qualitativeLevel(rawDbfs) {
-  const rmsDbfs = rawDbfs + QUIET_PATH_ALLOWANCE_DB
-  if (rmsDbfs < SILENT_DBFS) return 'silent'
-  if (rmsDbfs < QUIET_DBFS) return 'quiet'
-  if (rmsDbfs < CONVERSATION_DBFS) return 'conversation level'
+  if (rawDbfs < SILENT_DBFS) return 'silent'
+  if (rawDbfs < QUIET_DBFS) return 'quiet'
+  if (rawDbfs < CONVERSATION_DBFS) return 'conversation level'
   return 'loud'
 }
 
@@ -204,10 +212,13 @@ function formatLoudnessSummary(buffer, requestedMs) {
     `Loudness: RMS ${rms.toFixed(3)} (${rmsDbfs.toFixed(1)} dBFS), peak ${peak.toFixed(3)} (${peakDbfs.toFixed(1)} dBFS) — ${qualitativeLevel(rmsDbfs)}.`,
   )
   lines.push(
-    `This robot's capture path runs about ${QUIET_PATH_ALLOWANCE_DB} dB quiet, so compare sounds against each other rather than against the absolute dBFS numbers; the qualitative level above already allows for it.`,
+    `This robot's capture path runs about ${QUIET_PATH_ALLOWANCE_DB} dB quiet, so these dBFS numbers are far below what the same room would read on other hardware; the bands above are calibrated to this robot, not to usual dBFS figures.`,
   )
+  // A linear 0-100 scale on amplitude reads 0 for every slice at any level this hardware reaches short of
+  // a shout - an empty room measures RMS 0.003, and round(0.3) is 0 - so the row was a line of zeros under
+  // a headline saying someone was talking. dBFS spans the range the microphone actually produces.
   lines.push(
-    `Per ~${SLICE_DURATION_MS}ms slice RMS, 0-100 scale: ${slices.map((value) => Math.round(value * 100)).join(',')}`,
+    `Per ~${SLICE_DURATION_MS}ms slice RMS, dBFS: ${slices.map((value) => toDbfs(value).toFixed(0)).join(',')}`,
   )
   // The hardware preamp is out of reach from a MOD, so tell the caller what headroom is left.
   const advice = gainAdvice(peak)

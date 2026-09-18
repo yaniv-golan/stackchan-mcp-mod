@@ -912,9 +912,35 @@ for this platform, while the host's `Microphone` asks for 1 channel; the WAV hea
 ADC digital gain, not the PGA, and possibly revisiting the I2S slot config.
 
 **What the MOD does instead:** software gain (default **16x**) on `record_and_play` and `get_recorded_audio`, with
-clipped-sample counts and `gain: 1` for the raw signal; and the loudness thresholds are offset by the measured 30 dB
-(`CAPTURE_OFFSET_DB`) so speech reads as "conversation level" rather than "silent". Verified on the device: speech
+clipped-sample counts and `gain: 1` for the raw signal; and the loudness bands are drawn directly on raw RMS dBFS,
+anchored on the measurements below (they were offset by the measured 30 dB until 2026-09-18, which was wrong -
+the 30 dB was measured on a *peak* and applied to an *RMS* reading, so an empty room read "conversation level"). Verified on the device: speech
 recorded at -42 dBFS RMS was clearly audible when played back with the default gain.
+
+### Microphone loudness anchors - measured 2026-09-18
+
+Two `mic_listen` calls, 2500 ms, 16 kHz mono 16-bit, in an occupied room late evening with nobody speaking.
+**Not an anechoic noise floor** - treat it as the "empty room" anchor, not a true floor. Two samples, one room.
+
+| Sample | RMS | Peak | Crest |
+|---|---|---|---|
+| A (taken seconds after a 520 Hz tone, so its peak may carry the tail) | -51.4 dBFS | -34.0 dBFS | 17.4 dB |
+| B (no tone before it; the cleaner of the two) | -47.5 dBFS | -32.2 dBFS | 15.3 dB |
+
+Both were labelled "conversation level" by the bands as they then stood, which is the bug.
+
+**The crest factors corroborate the diagnosis independently.** 15-17 dB between peak and RMS, measured here on
+room noise rather than speech, is the same 12-20 dB band that makes a peak-derived allowance wrong when applied
+to an RMS reading.
+
+With speech at **-42 dBFS RMS** (above), the usable span between an empty room and someone talking is about
+**5.5 dB**. The bands are placed inside that: `silent < -54`, `quiet < -45`, `conversation level < -30`, `loud`
+above. Only the quiet/conversation boundary has to fall in the gap - it sits 2.5 dB above the louder room sample
+and 3 dB below speech.
+
+**Still missing, and worth taking when someone is at the robot:** a clap or shout anchor for the top of the range,
+more than one room, and a second speech figure. The margins above are thin enough that a single better
+measurement could move them.
 
 **On-screen prompts:** `show_message` / `hide_message` drive `robot.ui.showBalloon/hideBalloon`, and the recording
 tools show "Listening..." while the mic is open, so the person knows when to speak. Verified on the device.

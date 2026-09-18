@@ -36,6 +36,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The loudness bands are drawn on raw RMS dBFS, anchored on measurements.** They used to add a 30 dB
+  allowance that had been measured on a *peak* and applied to an *RMS* reading, so an empty room was
+  labelled "conversation level" — while "silent" needed raw < −80 dBFS and "quiet" < −60, neither of which
+  this microphone reaches. The anchors are in `docs/device-notes.md`: an empty room at −47.5/−51.4 dBFS RMS
+  and speech at −42. The margins are thin, and the note says so. The per-slice row is dBFS rather than a
+  linear 0–100 scale, which read 0 for every slice at any level this hardware produces. **Not yet flashed;
+  unverified on hardware.**
+- **A rules file can set `volume` on a `tone` action again.** Refusing unknown keys had taken that away.
+  There is deliberately no default: omitted, the tool falls through to the robot's own speaker volume.
 - **`blink` in a rules file takes `period_ms`, not `duration_ms`** - it is the flash period, and `leds` used
   the same name for a lifetime, which is how the shipped example came to start an alarm nothing ever
   stopped. A `blink` step with `duration_ms` is now refused at load, and the example turns its own LEDs off.
