@@ -6,7 +6,61 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The event loop survives a robot restart.** Sequence numbers begin again at 1 on every boot, and
+  `follow()` only moved its cursor forward, so after a reboot `since_seq` sat permanently in the future and
+  matched nothing: `watch-events.py` and `react.py` went silent for good while still reporting the robot
+  reachable. A reported highest seq below the cursor is the tell, and the reset is now announced.
+- **Events arriving during a blocking action are no longer stranded.** `wait_for_event` resolves only for
+  events recorded after the call starts, and a timeout skipped the backlog pull entirely, so anything that
+  landed while a `say_message` was playing stayed unread until some unrelated event happened to arrive - in
+  a quiet room, never.
+- **A refused tool call is no longer reported as an unreachable robot.** `text_of` returns `None` for an
+  error result and a transport failure alike, so any refusal from `wait_for_event` would have stopped the
+  loop pulling the backlog and put it to sleep against a robot that was answering perfectly.
+- **`highest_seq` reads every answer the robot gives.** It matched `(highest seq overall: N)` but not the
+  capital-H form written when there is nothing to return, so an empty answer read as 0.
+- **A rule action with keys nothing reads is refused at load.** Every builder reads its arguments with a
+  default, so a misspelled key was silently replaced by that default - `duration_mss: 9000` became
+  `duration_ms: 2000` and the rule did something quietly different from what it said.
+- **The MCP listener no longer gives up.** The accept loop was restarted at most five times, two seconds
+  apart, then abandoned - so a listener that died left the robot pingable with nothing bound to port 8080
+  until someone pressed reset. That is the silent death documented on 2026-09-17. It now backs off from 2 s
+  to 60 s indefinitely, and the connection counter is reset on restart with a clamped decrement so handlers
+  still in flight from the dead loop cannot drive it negative and silently raise the concurrency cap.
+  **Not yet flashed; unverified on hardware.**
+- **An over-cap connection gets `503` with `Retry-After`** instead of being accepted and closed with no
+  body, which carried no information and looked like a crashed server. **Not yet flashed; unverified on
+  hardware.**
+
+### Changed
+
+- **`blink` in a rules file takes `period_ms`, not `duration_ms`** - it is the flash period, and `leds` used
+  the same name for a lifetime, which is how the shipped example came to start an alarm nothing ever
+  stopped. A `blink` step with `duration_ms` is now refused at load, and the example turns its own LEDs off.
+- **`camera_take_photo` offers only `160x120`.** The other two sizes were always refused by the body budget,
+  in colour and grayscale alike, so the schema advertised two options that could never succeed. **Not yet
+  flashed; unverified on hardware.**
+- **`wait_for_event` allows two concurrent waiters.** A waiting call holds one of four connection slots for
+  its whole timeout; a third caller is refused with a message naming `get_recent_events`. **Not yet flashed;
+  unverified on hardware.**
+- `react.py` takes `--for SECONDS` and `--wait-ms MS`; `watch-events.py` honours `STACKCHAN_RUN_FOR`. The
+  deadline is enforced inside the event loop, because it yields only events and a quiet room never returns
+  control to the caller.
+- `get_robot_info` reports a listener restart count when it is not zero. **Not yet flashed; unverified on
+  hardware.**
+
+### Removed
+
+- **The pre-0.3.0 capture tool aliases.** They existed so a user with stale `permissions.ask` rules on the
+  old names got a loud failure rather than a silent bypass; there are no such users and no such rules, so
+  four refusing stubs sat in every `tools/list` for nothing. **Not yet flashed; unverified on hardware.**
+
 ### Added
+
+- Offline test harnesses for the two things no one could exercise by hand: `scripts/test-events.py` for the
+  event-following loop and `scripts/test-rules.py` for the rules validator. Both run in `scripts/check.sh`.
 
 - `/stackchan-robot:setup`, a plugin command that registers the robot with Claude Code: it finds the robot by MAC in the
   ARP table or takes an address, checks `GET /health` answers before registering anything, and passes the bearer
@@ -15,6 +69,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Documented
 
+- **Why the dead listener never came back.** The 2026-09-17 note recorded "Nothing recovered it on its own"
+  as unexplained; the explanation was already in the tree. Also records the measured `tools/list` size,
+  contradicting two comments calling it near the body ceiling.
+- **The operator skill, corrected against what the robot actually does**: that an assistant cannot do reflex
+  timing and `scripts/react.py` exists for it, that `wait_for_event` only sees events recorded after it
+  starts, that a tool error does not prove physical inaction, that a second driver duplicates reactions
+  rather than stealing them, and `GET /health` as the unauthenticated liveness probe. Three numbers in it
+  were wrong: grayscale is 4% smaller than colour rather than a third, `wait_for_event`'s maximum is 45 s
+  rather than 30, and "nothing is lost even if you are away" holds only if the reader makes the `since_seq`
+  call.
+- **How to install the plugin so the skill you are editing is the one that loads.**
 - **The MCP server can stop listening while the robot looks healthy.** The face draws, `ping` is clean, and port
   8080 refuses every connection - the inverse of the known display failure, and the refusal is what distinguishes
   it from the stalled-connection hang (which makes the server unresponsive rather than absent) and from a crash
