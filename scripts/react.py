@@ -348,16 +348,19 @@ def main() -> int:
     mode = "acting" if arguments.act else "dry run"
     report(f"{len(rules)} rule(s) loaded, {mode}" + (", replaying " + arguments.events_from if arguments.events_from else ""))
 
-    # The deadline is handed to follow() rather than checked around the loop below: that generator yields
-    # only events, so in a quiet room - the case --for exists for - control never comes back here.
-    deadline = time.time() + arguments.run_for if arguments.run_for else None
-    if deadline:
-        report(f"stopping after {arguments.run_for:.0f}s, checked between waits of {arguments.wait_ms} ms")
-    source = (
-        offline_events(arguments.events_from)
-        if arguments.events_from
-        else events.follow(wait_ms=arguments.wait_ms, on_state=report, deadline=deadline)
-    )
+    if arguments.events_from:
+        # A replay ends when the file does. --for and --wait-ms only mean anything against a robot, and
+        # silently accepting them here would print a promise the run does not keep.
+        if arguments.run_for:
+            raise SystemExit("--for has no meaning with --events-from: a replay ends when the file does")
+        source = offline_events(arguments.events_from)
+    else:
+        # The deadline is handed to follow() rather than checked around the loop below: that generator
+        # yields only events, so in a quiet room - the case --for exists for - control never comes back.
+        deadline = time.time() + arguments.run_for if arguments.run_for else None
+        if deadline:
+            report(f"stopping after {arguments.run_for:.0f}s, checked between waits of {arguments.wait_ms} ms")
+        source = events.follow(wait_ms=arguments.wait_ms, on_state=report, deadline=deadline)
     recent: collections.deque[float] = collections.deque()
 
     for event in source:

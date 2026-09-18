@@ -67,6 +67,15 @@ def parse(text: str) -> list[dict]:
     return sorted(events, key=lambda event: event["seq"])
 
 
+def _first_line(response: dict | None) -> str:
+    """The first line of whatever a refusal said, for announcing it. Never raises.
+
+    `any_text` returns "" when an error result carries no text block at all, and "".splitlines() is [],
+    so indexing it blindly turns a refusing robot into a dead watcher.
+    """
+    return (robot.any_text(response).strip().splitlines() or ["no reason given"])[0]
+
+
 def follow(
     wait_ms: int = DEFAULT_WAIT_MS,
     retry_seconds: int = RETRY_SECONDS,
@@ -85,16 +94,26 @@ def follow(
     announce = on_state or (lambda message: None)
     call_timeout_s = wait_ms // 1000 + 15
 
-    baseline = robot.text_of(robot.call("get_recent_events", {"limit": 1}, timeout_s=call_timeout_s))
-    if baseline is None:
-        announce("unreachable: robot not answering")
-        reachable = False
-        sequence = 0
-    else:
-        reachable = True
-        sequence = highest_seq(baseline)
-        announce(f"watching from seq={sequence}")
-    refused = False
+    # The cursor is established before anything is watched, and retried until it can be: an unusable
+    # baseline used to mean starting from 0, which replays the whole ring buffer as if it were new - in
+    # `react.py --act` that is rules firing on events from minutes ago.
+    reachable = True
+    sequence = None
+    while sequence is None:
+        if deadline is not None and time.time() >= deadline:
+            announce("deadline reached")
+            return
+        baseline = robot.text_of(robot.call("get_recent_events", {"limit": 1}, timeout_s=call_timeout_s))
+        if baseline is not None:
+            sequence = highest_seq(baseline)
+            reachable = True
+            announce(f"watching from seq={sequence}")
+            break
+        if reachable:
+            announce("unreachable: robot not answering")
+            reachable = False
+        time.sleep(retry_seconds)
+    degraded = False
 
     while True:
         if deadline is not None and time.time() >= deadline:
@@ -110,17 +129,24 @@ def follow(
         if not reachable:
             announce("reachable again")
             reachable = True
-        # A refused wait is an answer, not silence. `text_of` returns None for both, so reading the wait
-        # through it made every tool-level refusal look like a robot that had stopped responding - the loop
-        # would announce "unreachable", skip the backlog and sleep, against a robot answering perfectly.
-        # The backlog pull below does not need the wait to have succeeded, so say so once and carry on.
-        if robot.is_error(response):
-            if not refused:
-                announce(f"waiting refused, polling instead: {robot.any_text(response).strip().splitlines()[0]}")
-                refused = True
-        elif refused:
-            announce("waiting accepted again")
-            refused = False
+
+        # A wait that did not block is an answer, not silence - a tool-level refusal (the robot caps
+        # concurrent waiters) or a protocol error (no such tool on an older MOD). Reading it through
+        # `text_of`, which returns None for all three, made every one of them look like a robot that had
+        # stopped responding. Polling still works in both cases, so say so once and keep pulling.
+        #
+        # The sleep is what makes that safe. This loop has no pacing of its own: `wait_for_event` blocking
+        # for wait_ms IS the pacing, so a wait that returns instantly turns it into a hot poll - measured
+        # at over a million calls a second against a fake, and network-bound against a real robot with four
+        # connection slots, forever, with nothing to stop it.
+        if robot.text_of(response) is None:
+            if not degraded:
+                announce(f"cannot wait, polling every {retry_seconds}s instead: {_first_line(response)}")
+                degraded = True
+            time.sleep(retry_seconds)
+        elif degraded:
+            announce("waiting works again")
+            degraded = False
 
         # The backlog is pulled on every pass, including after a timeout. `wait_for_event` resolves only
         # for events recorded after the call starts, so anything that landed while the consumer was busy -

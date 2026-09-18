@@ -16,6 +16,29 @@ import stackchan_events as events
 
 FAILURES: list[str] = []
 
+# How many MCP calls any single test may provoke before it is declared stuck. Every fix here is of the
+# shape "an event never arrives", and a test for one fails by never returning - so an unbounded fixture
+# turns a regression into a hung `scripts/check.sh` rather than a red one. That happened during
+# development of these very tests; the bound is what makes them report instead of hang.
+CALL_BUDGET = 200
+
+
+class Stuck(Exception):
+    """Raised when a fixture has answered CALL_BUDGET calls without the test finishing."""
+
+
+def bound(responder):
+    """Wraps a fake responder so a loop that stops making progress ends the test instead of spinning."""
+    budget = {"left": CALL_BUDGET}
+
+    def limited(tool, args):
+        budget["left"] -= 1
+        if budget["left"] <= 0:
+            raise Stuck(f"no progress after {CALL_BUDGET} calls")
+        return responder(tool, args)
+
+    return limited
+
 
 def check(name: str, got, want) -> None:
     if got == want:
@@ -91,7 +114,7 @@ def test_events_arriving_during_a_blocking_action_are_still_delivered() -> None:
             return text(f"No event within {args.get('timeout_ms')} ms.")
         return None
 
-    with fake_robot(responder):
+    with fake_robot(bound(responder)):
         stream = events.follow(wait_ms=1000, retry_seconds=0)
         check("first event arrives", next(stream)["seq"], 1)
         # The consumer now blocks in say_message. Two events land. The room then goes quiet.
@@ -117,7 +140,7 @@ def test_follow_recovers_when_the_robot_restarts_and_seq_resets() -> None:
             return text("Event received: seq=? kind=imu ticks=1 motion=shake")
         return None
 
-    with fake_robot(responder):
+    with fake_robot(bound(responder)):
         stream = events.follow(wait_ms=1000, retry_seconds=0, on_state=announced.append)
         check("pre-restart event arrives", next(stream)["seq"], 411644)
         recorded[:] = [1, 2]  # the robot reboots; seq restarts at 1
@@ -182,7 +205,8 @@ def test_a_refused_wait_is_not_reported_as_unreachable() -> None:
             delivered.append(next(stream)["seq"])
     check("the backlog is still delivered while waits are refused", delivered, [2])
     check("no false unreachable", [l for l in announced if "unreachable" in l], [])
-    check("the refusal is announced once", len([l for l in announced if "refused" in l]), 1)
+    check("the refusal is announced once", len([l for l in announced if "cannot wait" in l]), 1)
+    check("and it names the polling interval", any("polling every" in l for l in announced), True)
 
 
 def test_follow_stops_at_its_deadline_in_a_silent_room() -> None:
@@ -193,23 +217,62 @@ def test_follow_stops_at_its_deadline_in_a_silent_room() -> None:
         if tool == "get_recent_events":
             return events_page([], args.get("since_seq"), args.get("limit", 20))
         if tool == "wait_for_event":
+            # A real wait blocks for its timeout, and that is what the deadline has to interrupt. A fake
+            # that answers instantly tests a loop that does not exist.
+            clock.sleep(args.get("timeout_ms", 0) / 1000)
             return text(f"No event within {args.get('timeout_ms')} ms.")
         return None
 
-    with fake_robot(responder):
+    with fake_robot(bound(responder)):
         started = clock.time()
-        drained = list(events.follow(wait_ms=10, retry_seconds=0, deadline=started + 0.3))
+        drained = list(events.follow(wait_ms=50, retry_seconds=0, deadline=started + 0.3))
     check("the generator ends", drained, [])
     check("and it ended near its deadline", clock.time() - started < 5, True)
 
 
+def run(test) -> None:
+    """Runs one test, turning a stuck event loop into a reported failure."""
+    try:
+        test()
+    except Stuck as stuck:
+        FAILURES.append(f"{test.__name__}: {stuck}")
+        print(f"  FAIL {test.__name__}: {stuck}")
+
+
+def test_a_wait_that_does_not_block_does_not_become_a_hot_poll() -> None:
+    print("follow: pacing when the wait is refused")
+    import time as clock
+
+    calls = {"n": 0}
+
+    def responder(tool, args):
+        calls["n"] += 1
+        if tool == "get_recent_events":
+            return events_page([1], args.get("since_seq"), args.get("limit", 20))
+        if tool == "wait_for_event":
+            # Instant, and unusable: what the robot's two-waiter cap gives a third watcher.
+            return error("Error: 2 callers are already waiting for an event, which is this robot's limit.")
+        return None
+
+    # The wait is what paces this loop. When it returns instantly the loop has no pacing of its own, and
+    # without an explicit sleep it polls as fast as the network allows - forever, against a device with
+    # four connection slots. This is that regression, measured rather than argued.
+    with fake_robot(responder):
+        started = clock.time()
+        list(events.follow(wait_ms=45000, retry_seconds=1, deadline=started + 2.0))
+    check("a refused wait is polled, not spun", calls["n"] < 30, True)
+    if calls["n"] >= 30:
+        print(f"       made {calls['n']} calls in 2s")
+
+
 def main() -> int:
     test_highest_seq_reads_every_message_the_mod_emits()
-    test_events_arriving_during_a_blocking_action_are_still_delivered()
-    test_follow_recovers_when_the_robot_restarts_and_seq_resets()
-    test_an_idle_wait_is_not_mistaken_for_a_restart()
-    test_a_refused_wait_is_not_reported_as_unreachable()
-    test_follow_stops_at_its_deadline_in_a_silent_room()
+    run(test_events_arriving_during_a_blocking_action_are_still_delivered)
+    run(test_follow_recovers_when_the_robot_restarts_and_seq_resets)
+    run(test_an_idle_wait_is_not_mistaken_for_a_restart)
+    run(test_a_refused_wait_is_not_reported_as_unreachable)
+    run(test_follow_stops_at_its_deadline_in_a_silent_room)
+    run(test_a_wait_that_does_not_block_does_not_become_a_hot_poll)
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s)")
         return 1
