@@ -98,9 +98,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Documented
 
-- **This microphone's actual noise floor: about −56 dBFS, ±1, with a 7 dB spread across slices.** The first
-  real floor measurement for this hardware, and the first readable one — the old linear slice scale rounded
-  it all to zero. Also that an occupied room runs 4–8 dB louder than the same room empty, which is a wider
+- **This microphone's actual noise floor: about −56 dBFS, ±1, spreading about 3 dB across slices.** Measured
+  twice, 26 slices, aggregates agreeing to half a decibel. The first real floor measurement for this
+  hardware and the first readable one — the old linear slice scale rounded it all to zero. A first reading
+  suggested 7 dB of spread; a second showed that was a transient in the room, not the floor. Also that an occupied room runs 4–8 dB louder than the same room empty, which is a wider
   band than either margin the loudness thresholds were placed within, and is why the first placement was
   wrong in both directions at once.
 - **Why the dead listener never came back.** The 2026-09-17 note recorded "Nothing recovered it on its own"

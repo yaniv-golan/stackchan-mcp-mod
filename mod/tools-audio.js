@@ -67,11 +67,12 @@ const MAX_DECIMATION_FACTOR = 8
 // working robot in a quiet house reported its own microphone as broken. An empty room is `quiet`.
 //
 // -90 separates them by construction instead of by margin. A disconnected ADC returns zeros, and toDbfs
-// floors those at DBFS_FLOOR (-96); this microphone's own noise floor is about -56 dBFS with a 7 dB spread
-// across slices (docs/device-notes.md, measured 2026-09-18). 34 dB apart, so no room can reach it.
+// floors those at DBFS_FLOOR (-96); this microphone's own noise floor is about -56 dBFS, measured twice
+// (docs/device-notes.md, 2026-09-18). 34 dB apart, so no room can reach it.
 //
-// What this does NOT do is detect a *stuck* capture path that returns a constant non-zero value. That needs
-// slice variance, not a level - see the note in device-notes.md.
+// This covers ONE failure mode, not the class. A capture path stuck at a constant non-zero DC offset has an
+// RMS equal to that offset and can read anywhere on this scale - including "conversation level" - while
+// every slice is identical. No level threshold catches that; slice variance would. See device-notes.md.
 const SILENT_DBFS = -90
 const QUIET_DBFS = -45
 const CONVERSATION_DBFS = -30

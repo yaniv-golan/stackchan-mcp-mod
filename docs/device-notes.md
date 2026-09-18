@@ -952,8 +952,18 @@ rather than the linear 0-100 scale that rounded everything to zero. Unoccupied r
     RMS 0.002 (-55.2 dBFS), peak 0.014 (-37.4 dBFS)
     slices: -56,-56,-56,-57,-57,-55,-56,-56,-50,-56,-57,-56,-57
 
-**The floor is about -56 dBFS, +/-1, with one excursion to -50.** Thirteen coherent slices, not an
-aggregate - this is what the linear scale was hiding.
+and a second, same room, nothing changed but time:
+
+    RMS 0.002 (-55.7 dBFS), peak 0.007 (-42.7 dBFS)
+    slices: -56,-56,-56,-55,-56,-55,-55,-56,-54,-57,-56,-56,-56
+
+**The floor is about -56 dBFS, +/-1.** Two readings across two flashes, 26 slices, aggregates agreeing to
+half a decibel. That number is solid.
+
+**The spread is about 3 dB undisturbed, not 7.** The first reading's -50 slice and -37.4 peak were a real
+transient - some small sound in the room - not the floor behaving normally; the second reading spans 3 dB
+and its peak is 5 dB lower. Do not quote 7 dB as the floor's spread: it is the spread of a floor with one
+event in it.
 
 **An occupied room is 4-8 dB louder than an unoccupied one.** The earlier anchors (-47.5 and -51.4) were
 taken with someone sitting in the room; the same room empty is -55.2. That gap is larger than either margin
@@ -978,11 +988,22 @@ linear scale. Slice variance would degrade gracefully across rooms instead of de
 15.3 and 17.4 dB of crest here, and speech RMS sits 12-20 dB below its own peak - the ranges overlap, so
 peak-minus-RMS cannot separate "someone is talking" from "this room is noisy" on this hardware.
 
-**The floor measurement above now supports the same argument twice over.** A live microphone in a silent
-room has a 7 dB spread across its slices; a disconnected or stuck one has none at all. So variance separates
-"dead air" from "quiet room" exactly as it would separate "someone talking" from "noisy room" - and a level
-threshold can do neither, which is why `silent` had to be pushed 34 dB below the floor rather than placed
-near it.
+**The floor measurement above supports the dead-air half of that argument, and complicates the speech half.**
+A live microphone in a silent room spreads 3 dB across its slices and a disconnected one spreads none, so
+variance separates dead air from a quiet room decisively - 3 dB or 7, both are enormous next to zero, which
+is why `silent` sits 34 dB below the floor rather than near it.
+
+**But a speech discriminator cannot be "spread exceeds N".** A single door-close transient put 7 dB of
+spread into the first reading with nobody speaking. A threshold set above the undisturbed 3 dB would fire on
+that; one set above 7 dB would need speech louder than a transient. What distinguishes speech is *shape* -
+several consecutive slices elevated together, which is what syllables produce and what a lone transient
+cannot. Build it against the shape, not the range, and get a speech sample first.
+
+**What `silent` at -90 does and does not cover.** It catches a capture path returning zeros, which is what a
+disconnected line gives. It does **not** catch one stuck at a constant non-zero DC offset: that has RMS
+equal to the offset and could read anywhere on the scale, including "conversation level", while showing zero
+variance across slices. No level threshold can catch that case and the variance approach can, which is a
+second reason to want it. So `-90` covers one failure mode, not the class.
 
 **What would settle it:** one `mic_listen` over speech, back to back with a fresh quiet-room control, both
 with the dBFS slice row. The control half exists (above). If the speech slices are visibly more variable
