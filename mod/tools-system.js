@@ -23,6 +23,11 @@ export function systemTools(robot, info) {
         const lines = []
         lines.push(`MOD: ${info.name} v${info.version}, ${info.toolCount} tools`)
         lines.push(`Uptime: ${Math.round(Time.ticks / 1000)} s`)
+        // Non-zero means the accept loop has been dying and recovering. Nothing else says so while the
+        // server is still answering - and once it stops, this tool cannot be called at all, so the
+        // drawer's "MCP Server" entry is the only route then.
+        const restarts = info.server?.restarts ?? 0
+        if (restarts > 0) lines.push(`Listener: restarted ${restarts} time(s) since boot`)
         try {
           const address = Net.get('IP')
           lines.push(`Address: http://${address ?? 'unknown'}:${info.port}/mcp`)

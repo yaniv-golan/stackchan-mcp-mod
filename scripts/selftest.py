@@ -96,6 +96,23 @@ class Outcome:
     seconds: float = 0.0
 
 
+def no_phantom_listener_restarts(response: dict) -> str | None:
+    """A restart count on a robot that has only just booted is a counter reporting something else.
+
+    The line is absent when the count is zero, so this cannot assert its presence - what it can assert is
+    that a robot under a minute old does not claim its listener has been dying, which is the way a
+    miswired counter would show itself.
+    """
+    text = robot.text_of(response) or ""
+    restarts = re.search(r"Listener: restarted (\d+) time", text)
+    if not restarts:
+        return None
+    uptime = re.search(r"Uptime: (\d+) s", text)
+    if uptime and int(uptime.group(1)) < 60 and int(restarts.group(1)) > 0:
+        return f"claims {restarts.group(1)} listener restart(s) after only {uptime.group(1)}s of uptime"
+    return None
+
+
 def photo_is_usable(response: dict) -> str | None:
     """A photo has to be a real PNG that this device could actually have sent."""
     images = robot.blocks(response, "image")
@@ -184,6 +201,16 @@ def checks() -> list[Check]:
             tier="read",
             tool="get_head_pose",
             expect=(r"yaw=-?[\d.]+deg", r"position=\["),
+        ),
+        Check(
+            name="a freshly booted robot reports no listener restarts",
+            tier="read",
+            tool="get_robot_info",
+            # The consequence, not the status: the restart counter has to be real. A robot whose accept
+            # loop has never died must not claim it has - a line that appeared unconditionally, or a
+            # counter wired to the wrong thing, would show up here rather than being believed later.
+            expect=(r"Uptime: \d+ s",),
+            verify=no_phantom_listener_restarts,
         ),
         Check(
             name="waiting for an event times out cleanly",

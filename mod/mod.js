@@ -150,6 +150,9 @@ export function onContextCreated(robot, option) {
   }
 
   const server = new MCPServer({ port: MCP_PORT, tools, name: 'stackchan-mcp-mod', version: VERSION })
+  // systemTools closed over `info` above; get_robot_info reads server state lazily, so assigning it here
+  // - after the server exists, before any request can arrive - is in time.
+  info.server = server
 
   let endpointVisible = false
   try {
