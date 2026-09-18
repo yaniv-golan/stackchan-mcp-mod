@@ -79,6 +79,7 @@ export class MCPServer {
   #tokenTooShort = false
   #connections = 0
   #restarts = 0
+  #generation = 0
 
   constructor(config = {}) {
     this.#port = config.port ?? 8080
@@ -137,10 +138,13 @@ export class MCPServer {
     for (;;) {
       trace(`[mcp] starting on port ${this.#port}${this.#restarts > 0 ? ` (restart ${this.#restarts})` : ''}\n`)
       // A handler whose respondWith never settles never reaches its finally, so its slot is never given
-      // back, and the field outlives the accept loop. Reset here to recover those - the decrement is
-      // clamped at zero, so handlers still in flight from the dead loop cannot drive this negative and
-      // silently raise the connection cap in the one state where the device is already unhealthy.
+      // back, and the field outlives the accept loop. Reset here to recover those. Handlers still in
+      // flight from the dead loop carry the previous generation and skip the decrement entirely, so they
+      // can neither drive the count negative nor free a slot belonging to the new one - without that, four
+      // stuck handlers plus a reset would let eight connections be live at once, raising the very cap this
+      // file refuses to raise, in the one state where the device is already unhealthy.
       this.#connections = 0
+      this.#generation += 1
       let served = false
       try {
         this.#status = 'running'
@@ -216,11 +220,31 @@ export class MCPServer {
   }
 
   async #handleConnection(connection) {
+    // Which accept loop this handler belongs to. Its finally only gives a slot back to the same one.
+    const generation = this.#generation
     if (this.#connections >= MAX_CONCURRENT_CONNECTIONS) {
       // Closing silently gave the client an empty reply, which carries no information and is
       // indistinguishable from a crashed server. Answer instead - but drain the body first: a rejected
       // body promise nobody awaits is an unhandled rejection, and that reboots this device.
       trace('[mcp] too many connections; refusing\n')
+      // This path takes no slot and arms none of the normal timers, so a client that stalls mid-response
+      // would hold the connection open with nothing to close it - during overload, on a device where
+      // running out of memory is a reboot and a reboot is a dead screen. Close it on the same budget every
+      // other connection gets. The old code closed immediately, so this must not be less bounded.
+      let refusalTimer
+      try {
+        refusalTimer = Timer.set(() => {
+          refusalTimer = undefined
+          trace('[mcp] refusal response stalled; closing\n')
+          try {
+            connection.close()
+          } catch (error) {
+            trace(`[mcp] refusal timeout close failed: ${errorMessage(error)}\n`)
+          }
+        }, REQUEST_TIMEOUT_MS)
+      } catch (error) {
+        trace(`[mcp] refusal timer failed: ${errorMessage(error)}\n`)
+      }
       try {
         this.#drainBody(connection.request)
         const body = { error: 'Service Unavailable', reason: 'too many concurrent connections' }
@@ -231,6 +255,14 @@ export class MCPServer {
           connection.close()
         } catch (closeError) {
           trace(`[mcp] refusal close failed: ${errorMessage(closeError)}\n`)
+        }
+      } finally {
+        if (refusalTimer !== undefined) {
+          try {
+            Timer.clear(refusalTimer)
+          } catch (error) {
+            trace(`[mcp] refusal timer clear failed: ${errorMessage(error)}\n`)
+          }
         }
       }
       return
@@ -326,7 +358,7 @@ export class MCPServer {
       }
     } finally {
       clearTimer()
-      this.#connections = Math.max(0, this.#connections - 1)
+      if (generation === this.#generation) this.#connections = Math.max(0, this.#connections - 1)
     }
   }
 

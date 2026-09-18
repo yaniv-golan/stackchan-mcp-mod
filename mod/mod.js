@@ -26,15 +26,21 @@ function errorMessage(error) {
 }
 
 async function endpointMessage(robot, server) {
-  if (server.status === 'failed') return `MCP server error:\n${server.error ?? 'failed to start'}`
+  // `status` is 'failed' only during the backoff sleep - every retry sets it back to 'running' before
+  // listen() is even entered - so a listener that is dying and rebinding shows as healthy here most of the
+  // time. The restart count is the part that persists, and this drawer entry is the only diagnostic a
+  // person has when the tools cannot answer, so it has to carry it.
+  const restarts = server.restarts ?? 0
+  const history = restarts > 0 ? `\n(listener restarted ${restarts}x; last: ${server.error ?? 'unknown'})` : ''
+  if (server.status === 'failed') return `MCP server error:\n${server.error ?? 'failed to start'}${history}`
   try {
     const network = robot.connectivity.network
-    if (!network) return 'MCP server unavailable:\nnetwork is not supported'
+    if (!network) return `MCP server unavailable:\nnetwork is not supported${history}`
     const ready = await network.ready
-    if (ready.status !== 'connected') return `MCP server unavailable:\n${ready.reason}`
+    if (ready.status !== 'connected') return `MCP server unavailable:\n${ready.reason}${history}`
     const address = Net.get('IP')
-    if (!address) return 'MCP server unavailable:\nIP address is not available'
-    return `MCP server:\nhttp://${address}:${MCP_PORT}/mcp`
+    if (!address) return `MCP server unavailable:\nIP address is not available${history}`
+    return `MCP server:\nhttp://${address}:${MCP_PORT}/mcp${history}`
   } catch (error) {
     return `MCP server unavailable:\n${errorMessage(error)}`
   }

@@ -36,9 +36,14 @@ service to an AI assistant. Treat it accordingly.
   `mcp__<server>__` prefix needs **Claude Code 2.1.166 or later**; on an older version list the four capture tools
   and `restart_robot` out individually instead.
 
-  The capture tools are `camera_take_photo`, `mic_listen`, `mic_record_and_play` and `mic_get_audio`. There are no
-  aliases and no other names: nothing else on this robot opens the camera or the microphone, so those four rules
-  plus `restart_robot` are the whole list.
+  The capture tools are `camera_take_photo`, `mic_listen`, `mic_record_and_play` and `mic_get_audio`. Those four
+  rules plus `restart_robot` are the whole list: nothing else on this robot opens the camera or the microphone.
+  Versions before 0.3.0 called them `take_photo`, `listen`, `record_and_play` and `get_recorded_audio`, and
+  **a stale `permissions.ask` rule under an old name is dangerous if you also hold a broad allow rule for this
+  server** — the old rule matches nothing while the broad one matches the new names, so capture fires with no
+  prompt, and Claude Code does not warn you because its stale-rule check exempts names containing `_`. Check your
+  rules against the four names above. (Until 0.4.0 is flashed, a robot may still serve the old names as refusing
+  stubs; from 0.4.0 they are gone entirely.)
 
 - **Captures are announced on the robot.** A photo lights the head LEDs and plays a short chirp; a recording lights
   them for its duration. Both work when the screen is blank, which matters because this hardware's display often
