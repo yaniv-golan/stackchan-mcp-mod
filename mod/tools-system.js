@@ -27,7 +27,15 @@ export function systemTools(robot, info) {
         // server is still answering - and once it stops, this tool cannot be called at all, so the
         // drawer's "MCP Server" entry is the only route then.
         const restarts = info.server?.restarts ?? 0
-        if (restarts > 0) lines.push(`Listener: restarted ${restarts} time(s) since boot`)
+        const worstRun = info.server?.worstFailureRun ?? 0
+        if (restarts > 0) {
+          // The restart count and the worst run both survive being asked about; `troubled` does not,
+          // because the connection carrying this very call clears it. So the numbers are the report, and
+          // the line below is only a latch detector - if it ever prints, the flag is stuck.
+          const worst = worstRun > 1 ? `, worst run ${worstRun} in a row` : ''
+          lines.push(`Listener: restarted ${restarts} time(s) since boot${worst}`)
+        }
+        if (info.server?.troubled) lines.push('Listener: IN TROUBLE - flag still set on a call that reached a tool')
         try {
           const address = Net.get('IP')
           lines.push(`Address: http://${address ?? 'unknown'}:${info.port}/mcp`)

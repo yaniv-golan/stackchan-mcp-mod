@@ -6,6 +6,7 @@ import { EmotionNames, emotionFromName } from 'face-state'
 import { probeBalloonFont } from 'font-probe'
 import { createIndicators } from 'indicators'
 import { MCPServer } from 'mcp-server-rich'
+import Timer from 'timer'
 import { appearanceTools } from 'tools-appearance'
 import { audioTools } from 'tools-audio'
 import { cameraTools } from 'tools-camera'
@@ -19,6 +20,15 @@ import { systemTools } from 'tools-system'
 const VERSION = '0.3.0'
 const MCP_PORT = 8080
 const DRAWER_KEY = 'mcp-server:endpoint'
+// The far side of the 12-LED ring from the armed indicator, which owns index 0 (capture-policy.js).
+// Replacing that one would show a disarmed-looking robot that is in fact armed.
+const LISTENER_TROUBLE_LED_INDEX = 6
+// Distinct from armed amber (255,180,0), camera red (255,40,0) and microphone blue (0,80,255).
+const LISTENER_TROUBLE_COLOR = { r: 180, g: 0, b: 255 }
+// Re-applied this often while the trouble lasts. indicators.js clears the WHOLE ring after any capture,
+// and a capture accepted before the accept loop died can finish after it - so a warning written once is a
+// warning something else can erase for good.
+const LISTENER_TROUBLE_REASSERT_MS = 30000
 
 function errorMessage(error) {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message)
@@ -43,6 +53,60 @@ async function endpointMessage(robot, server) {
     return `MCP server:\nhttp://${address}:${MCP_PORT}/mcp${history}`
   } catch (error) {
     return `MCP server unavailable:\n${errorMessage(error)}`
+  }
+}
+
+/**
+ * Says on the robot itself that its MCP server cannot serve.
+ *
+ * Nothing else reaches a person who is merely in the room: the tools are served by the listener that is
+ * down, and the drawer entry needs somebody to already suspect a problem and walk over.
+ *
+ * Every write is wrapped even though MCPServer also wraps the call - this runs on the listener's restart
+ * path, where a throw stops the listener, and relying on somebody else's try/catch for that is not a thing
+ * to do. Writing index 6 also cancels any running ring effect (py32-led's on() and off() both stop
+ * effects, and the timers are per-LED-object rather than per-range) and punches one hole in a capture
+ * indicator; both only happen on a robot that is already unreachable.
+ */
+function createListenerTroubleIndicator(robot) {
+  const ledName = Object.keys(robot.lighting?.led ?? {})[0]
+  let reassertTimer
+
+  const paint = () => {
+    if (!ledName) return
+    try {
+      const { r, g, b } = LISTENER_TROUBLE_COLOR
+      robot.lighting.lightOn(ledName, r, g, b, 0, LISTENER_TROUBLE_LED_INDEX, 1)
+    } catch (error) {
+      trace(`[mcp-mod] listener trouble LED failed: ${errorMessage(error)}\n`)
+    }
+  }
+
+  return (inTrouble, consecutiveFailures) => {
+    trace(
+      `[mcp-mod] listener ${inTrouble ? `cannot bind: ${consecutiveFailures} failures running` : 'is serving again'}\n`,
+    )
+    try {
+      if (reassertTimer !== undefined) Timer.clear(reassertTimer)
+    } catch (error) {
+      trace(`[mcp-mod] listener trouble timer clear failed: ${errorMessage(error)}\n`)
+    }
+    reassertTimer = undefined
+    if (!inTrouble) {
+      if (!ledName) return
+      try {
+        robot.lighting.lightOff(ledName, LISTENER_TROUBLE_LED_INDEX, 1)
+      } catch (error) {
+        trace(`[mcp-mod] listener trouble LED clear failed: ${errorMessage(error)}\n`)
+      }
+      return
+    }
+    paint()
+    try {
+      reassertTimer = Timer.repeat(paint, LISTENER_TROUBLE_REASSERT_MS)
+    } catch (error) {
+      trace(`[mcp-mod] listener trouble timer failed: ${errorMessage(error)}\n`)
+    }
   }
 }
 
@@ -151,7 +215,13 @@ export function onContextCreated(robot, option) {
     trace(`[mcp-mod] custom face failed: ${errorMessage(error)}\n`)
   }
 
-  const server = new MCPServer({ port: MCP_PORT, tools, name: 'stackchan-mcp-mod', version: VERSION })
+  const server = new MCPServer({
+    port: MCP_PORT,
+    tools,
+    name: 'stackchan-mcp-mod',
+    version: VERSION,
+    onListenerTrouble: createListenerTroubleIndicator(robot),
+  })
   // systemTools closed over `info` above; get_robot_info reads server state lazily, so assigning it here
   // - after the server exists, before any request can arrive - is in time.
   info.server = server
