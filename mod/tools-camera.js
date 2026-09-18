@@ -7,10 +7,12 @@ import Timer from 'timer'
 
 // The GC0308 sensor has no JPEG mode, so frames come back as RGB565 and are encoded here.
 // Bigger modes need more contiguous DMA; the host's own preview sticks to the sensor's native QQVGA.
+// One size, because one size fits. 176x144 encodes to ~35 KB on the wire and 240x176 to ~57.5 KB against
+// the 28 KB budget below, in colour and grayscale alike - they were offered in the schema and refused
+// twenty lines later, so a model spent a call finding out. The budget check stays as the backstop: it is
+// what decides, and it must keep deciding if this ever grows.
 const SIZES = {
   '160x120': { width: 160, height: 120 },
-  '176x144': { width: 176, height: 144 },
-  '240x176': { width: 240, height: 176 },
 }
 const DEFAULT_SIZE = '160x120'
 const STOP_DELAY_MS = 120
@@ -117,14 +119,14 @@ export function cameraTools(robot, { policy, indicators } = {}) {
     {
       name: 'camera_take_photo',
       description:
-        'Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. Color uses a 256-color palette, the same size as grayscale; the robot cannot send a larger image than about 24 KB, so bigger sizes are refused.',
+        'Take a photo with the head camera and return it as a PNG image. Capturing pauses the head touch strip for a moment. 160x120 is the only size this robot can send. Color uses a 256-color palette, the same pixel size as grayscale, but at ~27.8 KB on the wire it sits just under what the device can transmit, so prefer grayscale unless color is the point.',
       inputSchema: {
         type: 'object',
         properties: {
           size: {
             type: 'string',
             enum: Object.keys(SIZES),
-            description: `Capture size, default ${DEFAULT_SIZE}. Larger sizes need more memory and may fail.`,
+            description: `Capture size. ${DEFAULT_SIZE} is the only value this robot can send.`,
           },
           color: { type: 'boolean', description: 'Return a 256-color palette PNG instead of the default grayscale' },
           show_on_screen: {
