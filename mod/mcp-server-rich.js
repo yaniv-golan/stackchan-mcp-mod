@@ -30,8 +30,12 @@ const PROTOCOL_VERSION = '2025-06-18'
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
 // Stands in for the base64 payload while the small JSON envelope is built as a string.
 const BINARY_PLACEHOLDER = '@@stackchan-base64@@'
-const LISTENER_RESTART_ATTEMPTS = 5
-const LISTENER_RESTART_DELAY_MS = 2000
+// The accept loop is restarted for as long as the MOD runs. There was a cap of five attempts two seconds
+// apart - eight seconds of budget - so a listener that died while nobody was looking was gone for good, and
+// the robot sat on the network, pingable, with nothing bound to its port until somebody pressed reset. That
+// was the only unrecoverable software state this MOD had.
+const LISTENER_RESTART_DELAY_MIN_MS = 2000
+const LISTENER_RESTART_DELAY_MAX_MS = 60000
 // The HTTP layer buffers a request body into RAM before any of this code runs, and before the token is
 // checked. Without a cap, an unauthenticated request large enough to exhaust memory reboots the device -
 // and a reboot on this hardware leaves the display dead until someone power-cycles it by hand. The
@@ -73,6 +77,7 @@ export class MCPServer {
   #version
   #tokenTooShort = false
   #connections = 0
+  #restarts = 0
 
   constructor(config = {}) {
     this.#port = config.port ?? 8080
@@ -112,16 +117,32 @@ export class MCPServer {
   }
 
   /**
+   * How many times the accept loop has had to be restarted. Non-zero means the server has been dying and
+   * recovering, which nothing else surfaces while it is still answering.
+   */
+  get restarts() {
+    return this.#restarts
+  }
+
+  /**
    * Serves connections, and restarts the listener if the accept loop ever ends.
    * A response the device cannot finish sending (a large image) kills the loop, and without this the
    * robot stays on the network with no MCP server until someone power-cycles it.
    */
   async #startServer() {
-    for (let attempt = 1; ; attempt += 1) {
-      trace(`[mcp] starting on port ${this.#port}${attempt > 1 ? ` (attempt ${attempt})` : ''}\n`)
+    let delay = LISTENER_RESTART_DELAY_MIN_MS
+    for (;;) {
+      trace(`[mcp] starting on port ${this.#port}${this.#restarts > 0 ? ` (restart ${this.#restarts})` : ''}\n`)
+      // A handler whose respondWith never settles never reaches its finally, so its slot is never given
+      // back, and the field outlives the accept loop. Reset here to recover those - the decrement is
+      // clamped at zero, so handlers still in flight from the dead loop cannot drive this negative and
+      // silently raise the connection cap in the one state where the device is already unhealthy.
+      this.#connections = 0
+      let served = false
       try {
         this.#status = 'running'
         for await (const connection of listen({ port: this.#port })) {
+          served = true
           this.#handleConnection(connection).catch((error) => trace(`[mcp] connection error: ${errorMessage(error)}\n`))
         }
         this.#error = 'listener closed'
@@ -129,13 +150,31 @@ export class MCPServer {
         this.#error = errorMessage(error)
       }
       this.#status = 'failed'
+      this.#restarts += 1
       trace(`[mcp] listener stopped: ${this.#error}\n`)
-      if (attempt >= LISTENER_RESTART_ATTEMPTS) {
-        trace('[mcp] giving up on restarting the listener\n')
-        return
-      }
-      await new Promise((resolve) => Timer.set(resolve, LISTENER_RESTART_DELAY_MS))
+      // A loop that accepted at least one connection was working, so start the backoff over. One that died
+      // without accepting anything is usually a port not yet released, and hammering it does not help.
+      if (served) delay = LISTENER_RESTART_DELAY_MIN_MS
+      trace(`[mcp] restarting the listener in ${delay} ms\n`)
+      await this.#sleep(delay)
+      delay = Math.min(delay * 2, LISTENER_RESTART_DELAY_MAX_MS)
     }
+  }
+
+  /**
+   * A delay that cannot reject. Timer.set throwing would otherwise escape this loop as an unhandled
+   * rejection - which on this device is a reboot - and leave the listener unrecoverable again, which is the
+   * whole failure this method exists to prevent.
+   */
+  #sleep(ms) {
+    return new Promise((resolve) => {
+      try {
+        Timer.set(resolve, ms)
+      } catch (error) {
+        trace(`[mcp] Timer.set failed: ${errorMessage(error)}\n`)
+        resolve()
+      }
+    })
   }
 
   /** Reads a header. The HTTP layer lowercases names at parse time, so lowercase keys are correct. */
@@ -270,7 +309,7 @@ export class MCPServer {
       }
     } finally {
       clearTimer()
-      this.#connections -= 1
+      this.#connections = Math.max(0, this.#connections - 1)
     }
   }
 
