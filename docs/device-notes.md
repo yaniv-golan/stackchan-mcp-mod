@@ -518,6 +518,11 @@ the same pins the docs call IR. Confirm against the schematics before touching e
 | ~56 KB (240x176 grayscale) | never completes; **the HTTP accept loop dies** — robot still pings, `/health` stops answering |
 | ~77 KB (160x120 truecolor) | client received ~1.4 KB (one TCP segment) then stalled; same server death |
 
+**`tools/list` is not near the ceiling, despite comments in the tree saying it is.** Measured 2026-09-18 on
+this robot: **16,819 bytes for 33 tools** - well under the 28 KB body budget and under the 24,000-byte
+limit `scripts/selftest.py` already enforces. It grows with every tool and every lengthened description, so
+the check is worth keeping; the alarm is not.
+
 **The true threshold is somewhere between ~28 KB and ~56 KB and has never been measured.** What is established is
 that bodies up to ~27.8 KB work repeatably and ~56 KB reliably kills the server; treating any single figure as the
 hard limit overstates the evidence.
@@ -675,6 +680,20 @@ What was observed, with the user watching the screen:
 
 The MOD's listener went away while the host firmware carried on. **Only a hardware reset brought it back** (uptime
 52 s afterwards). Nothing recovered it on its own.
+
+**Why nothing recovered it: the listener gave up after five attempts.** `mod/mcp-server-rich.js` restarts
+the accept loop when it ends, but `LISTENER_RESTART_ATTEMPTS = 5` and the fifth failure `return`s from
+`#startServer`. Nothing called it again - the promise *resolves*, so the `.catch` at the call site never
+fired either. The MOD kept running, the face kept drawing, and port 8080 stayed bound by nobody until a
+hardware reset. With `LISTENER_RESTART_DELAY_MS = 2000` and four delays between five attempts, the whole
+budget was spent in about eight seconds, which is why retrying for 40 s did not help: the server had given
+up before the retries began.
+
+This explains the *non-recovery*, not the *death*. Why the accept loop ended is still open and the
+idle-client hypothesis below is still the best candidate. The two are independent.
+
+**What would settle the death:** the trace prints `[mcp] listener stopped: <reason>` on every attempt.
+Attaching a serial logger resets this device, so the log has to be running *before* the failure.
 
 **Untestable after the fact.** Uptime is served by the very server that is down, so there is no way to learn
 whether the device had rebooted before the failure. A serial logger cannot help either: attaching one resets this

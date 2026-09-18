@@ -9,8 +9,9 @@
  * Registering these old names as stubs keeps a stale rule matching a real tool, so an old-name call
  * fails loudly with an explanation instead of silently 404-ing.
  *
- * Descriptions are kept to one short sentence each: tools/list is itself an HTTP response, already
- * close to the ~28 KB body ceiling documented in tools-camera.js, and every byte here is pure overhead.
+ * Descriptions are kept to one short sentence each: tools/list is itself an HTTP response, subject to the
+ * same body ceiling as a photo, and every byte here is pure overhead. It measured 16,819 bytes at 33
+ * tools (2026-09-18) against a 24,000-byte check in scripts/selftest.py - comfortable, but it only grows.
  */
 
 const RENAMES = [
